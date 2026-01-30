@@ -12,7 +12,8 @@ $fixedCount = 0
 Write-Host "`n🔧 Correction en cours...`n" -ForegroundColor Yellow
 
 foreach ($file in $files) {
-    $content = Get-Content $file.FullName -Raw
+    # Compatible PowerShell v2
+    $content = [System.IO.File]::ReadAllText($file.FullName)
     $original = $content
     
     # Pattern 1: { params }: { params: { id: string } }
@@ -25,9 +26,9 @@ foreach ($file in $files) {
     $content = $content -replace 'const\s*\{\s*id:\s*(\w+)\s*\}\s*=\s*params;', 'const { id: $1 } = await context.params;'
     
     if ($content -ne $original) {
-        Set-Content -Path $file.FullName -Value $content -NoNewline
+        [System.IO.File]::WriteAllText($file.FullName, $content)
         $fixedCount++
-        $relativePath = $file.FullName -replace [regex]::Escape($PWD.Path), ""
+        $relativePath = $file.FullName.Replace($PWD.Path, "")
         Write-Host "  ✅ $relativePath" -ForegroundColor Green
     }
 }
