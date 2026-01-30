@@ -6,7 +6,7 @@ Write-Host "`n📦 Création backup..." -ForegroundColor Cyan
 git add . 2>$null
 git commit -m "Backup avant correction params async" 2>$null
 
-$files = Get-ChildItem -Path ".\app\api" -Filter "route.ts" -Recurse
+$files = Get-ChildItem -Path ".\src\app\api" -Filter "route.ts" -Recurse
 $fixedCount = 0
 
 Write-Host "`n🔧 Correction en cours...`n" -ForegroundColor Yellow
