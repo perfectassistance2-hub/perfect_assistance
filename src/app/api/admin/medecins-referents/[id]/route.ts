@@ -5,7 +5,6 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 // =====================================================
 // GET - Détails d'un médecin référent
-// =====================================================
 
 export async function GET(
   request: NextRequest,
