@@ -13,10 +13,10 @@ export async function GET() {
 
     // 1. KPI MOIS EN COURS
     const { data: paiementsMoisCourant } = await supabaseAdmin
-      .from('paiements')
-      .select('montant, statut, cliniqueId, medecinId')
-      .gte('dateCreation', `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`)
-      .lt('dateCreation', `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`);
+    .from('paiements')
+    .select('montant, statut, cliniqueId, medecinId, patientId')  // ✅ AJOUTER patientId
+    .gte('dateCreation', `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`)
+    .lt('dateCreation', `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`);
 
     const revenusMoisCourant = paiementsMoisCourant?.reduce((sum, p) => 
       p.statut === 'payé' ? sum + Number(p.montant) : sum, 0

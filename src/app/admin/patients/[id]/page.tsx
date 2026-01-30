@@ -42,13 +42,18 @@ type Patient = {
 
 type DossierMedical = {
   id: string;
+  patientId: string;  // ✅ AJOUTER
   groupeSanguin: string | null;
   allergies: string | null;
+  antecedentsChirurgicaux: string | null;  // ✅ AJOUTER
+  antecedentsFamiliaux: string | null;     // ✅ AJOUTER
   maladiesChroniques: string | null;
   medicamentsActuels: string | null;
   raisonVisite: string | null;
   traitementNecessaire: string | null;
   notes: string | null;
+  dateCreation: string;      // ✅ AJOUTER
+  dateMiseAJour: string;     // ✅ AJOUTER
 };
 
 type RendezVous = {

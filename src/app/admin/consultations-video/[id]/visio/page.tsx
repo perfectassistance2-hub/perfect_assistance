@@ -61,7 +61,6 @@ export default function VisioControlPage() {
 
   // États de la visioconférence
   const [callObject, setCallObject] = useState<any>(null);
-  const [callState, setCallState] = useState<string>("idle");
   const [participants, setParticipants] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -153,7 +152,6 @@ export default function VisioControlPage() {
       callFrame.on("participant-joined", handleParticipantJoined);
       callFrame.on("participant-left", handleParticipantLeft);
       callFrame.on("participant-updated", handleParticipantUpdated);
-      callFrame.on("call-state-update", handleCallStateUpdate);
       callFrame.on("recording-started", () => setIsRecording(true));
       callFrame.on("recording-stopped", () => setIsRecording(false));
       callFrame.on("left-meeting", handleLeftMeeting);
@@ -173,7 +171,6 @@ export default function VisioControlPage() {
       await callObject.leave();
       callObject.destroy();
       setCallObject(null);
-      setCallState("idle");
       setParticipants([]);
     }
   };
@@ -196,15 +193,10 @@ export default function VisioControlPage() {
     );
   };
 
-  const handleCallStateUpdate = (event: any) => {
-    setCallState(event.action);
-  };
-
   const handleLeftMeeting = async () => {
     if (callObject) {
       callObject.destroy();
       setCallObject(null);
-      setCallState("idle");
       setParticipants([]);
     }
   };

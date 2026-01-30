@@ -17,7 +17,7 @@ export async function GET(
       );
     }
 
-    const patientId = params.id;
+    const { id: patientId } = await context.params;
 
     // Vérifier accès
     const { data: sejour } = await supabaseAdmin
@@ -70,7 +70,7 @@ export async function POST(
       );
     }
 
-    const patientId = params.id;
+    const { id: patientId } = await context.params;
     const body = await request.json();
 
     // Vérifier accès
