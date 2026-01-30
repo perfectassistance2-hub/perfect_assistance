@@ -5,7 +5,7 @@ import { getAuthUser } from "@/lib/auth-utils";
 // GET - Récupérer le dossier médical
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getAuthUser(request);
@@ -58,7 +58,7 @@ export async function GET(
 // PUT - Mettre à jour le dossier médical
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getAuthUser(request);

@@ -5,7 +5,7 @@ import { getAuthUser } from "@/lib/auth-utils";
 // GET - Liste des documents du patient
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getAuthUser(request);
@@ -58,7 +58,7 @@ export async function GET(
 // POST - Ajouter un document
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getAuthUser(request);
