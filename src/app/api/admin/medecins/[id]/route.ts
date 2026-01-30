@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
-// GET - Détails d'un médecin
+// ✅ GET - Détails d'un médecin
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }  // ✅ CORRIGÉ
 ) {
   try {
-    const { id: medecinsId } = await params;
+    const { id: medecinsId } = await context.params;  // ✅ CORRIGÉ
+    
     const { data: medecin, error } = await supabaseAdmin
       .from('medecins')
       .select(`
@@ -36,13 +37,13 @@ export async function GET(
   }
 }
 
-// PATCH - Mettre à jour un médecin
+// ✅ PATCH - Mettre à jour un médecin
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }  // ✅ CORRIGÉ
 ) {
   try {
-    const { id: medecinsId } = await params;
+    const { id: medecinsId } = await context.params;  // ✅ CORRIGÉ
     const updates = await request.json();
 
     delete updates.id;
@@ -78,13 +79,13 @@ export async function PATCH(
   }
 }
 
-// DELETE - Supprimer un médecin
+// ✅ DELETE - Supprimer un médecin
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }  // ✅ CORRIGÉ
 ) {
   try {
-    const { id: medecinsId } = await params;
+    const { id: medecinsId } = await context.params;  // ✅ CORRIGÉ
 
     // Supprimer d'abord le compte utilisateur auth
     try {

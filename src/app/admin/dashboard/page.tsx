@@ -46,7 +46,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div>
+    <div className="w-full h-full">
+      {/* Header de la page */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
           Tableau de bord
@@ -56,9 +57,9 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6">
+      {/* Stats Cards - Responsive Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-600">Total Patients</h3>
             <span className="text-2xl">👥</span>
@@ -68,9 +69,10 @@ export default function DashboardPage() {
           ) : (
             <p className="text-3xl font-bold text-gray-900">{stats.totalPatients}</p>
           )}
+          <p className="text-xs text-gray-500 mt-2">Tous les patients</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-600">Rendez-vous</h3>
             <span className="text-2xl">📅</span>
@@ -80,9 +82,10 @@ export default function DashboardPage() {
           ) : (
             <p className="text-3xl font-bold text-gray-900">{stats.totalRendezVous}</p>
           )}
+          <p className="text-xs text-gray-500 mt-2">Planifiés et confirmés</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-600">Séjours</h3>
             <span className="text-2xl">✈️</span>
@@ -92,9 +95,10 @@ export default function DashboardPage() {
           ) : (
             <p className="text-3xl font-bold text-gray-900">{stats.totalSejours}</p>
           )}
+          <p className="text-xs text-gray-500 mt-2">En cours et à venir</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-600">Cliniques</h3>
             <span className="text-2xl">🏥</span>
@@ -104,11 +108,12 @@ export default function DashboardPage() {
           ) : (
             <p className="text-3xl font-bold text-gray-900">{stats.totalCliniques}</p>
           )}
+          <p className="text-xs text-gray-500 mt-2">Partenaires actifs</p>
         </div>
       </div>
 
       {/* Success Message */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
         <h3 className="text-lg font-bold text-green-800 mb-2">
           ✅ Système opérationnel !
         </h3>
@@ -120,13 +125,13 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+      {/* Quick Actions - Responsive Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
         <a
           href="/admin/patients"
-          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-all hover:scale-105"
         >
-          <div className="text-3xl mb-3">👥</div>
+          <div className="text-4xl mb-3">👥</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Gérer les patients
           </h3>
@@ -137,9 +142,9 @@ export default function DashboardPage() {
 
         <a
           href="/admin/rendez-vous"
-          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-all hover:scale-105"
         >
-          <div className="text-3xl mb-3">📅</div>
+          <div className="text-4xl mb-3">📅</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Planifier un RDV
           </h3>
@@ -150,14 +155,53 @@ export default function DashboardPage() {
 
         <a
           href="/admin/sejours"
-          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-all hover:scale-105"
         >
-          <div className="text-3xl mb-3">✈️</div>
+          <div className="text-4xl mb-3">✈️</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Organiser un séjour
           </h3>
           <p className="text-sm text-gray-600">
             Planifier les séjours médicaux complets
+          </p>
+        </a>
+
+        <a
+          href="/admin/cliniques"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-all hover:scale-105"
+        >
+          <div className="text-4xl mb-3">🏥</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Gérer les cliniques
+          </h3>
+          <p className="text-sm text-gray-600">
+            Ajouter et modifier les cliniques partenaires
+          </p>
+        </a>
+
+        <a
+          href="/admin/medecins"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-all hover:scale-105"
+        >
+          <div className="text-4xl mb-3">👨‍⚕️</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Gérer les médecins
+          </h3>
+          <p className="text-sm text-gray-600">
+            Base de données des praticiens
+          </p>
+        </a>
+
+        <a
+          href="/admin/devis"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-all hover:scale-105"
+        >
+          <div className="text-4xl mb-3">💰</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Créer un devis
+          </h3>
+          <p className="text-sm text-gray-600">
+            Générer des devis personnalisés
           </p>
         </a>
       </div>
