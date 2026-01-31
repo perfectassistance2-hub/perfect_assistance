@@ -22,7 +22,6 @@ export default function PatientLayoutWrapper({
       {/* Sidebar */}
       <PatientSidebar 
         patient={patient}
-        messagesNonLus={messagesNonLus}
         notificationsNonLues={notificationsNonLues}
       />
 

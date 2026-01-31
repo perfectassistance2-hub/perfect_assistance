@@ -16,7 +16,7 @@ export async function POST(
       );
     }
 
-    const rdvId = params.id;
+    const { id: rdvId } = await context.params;
 
     // Créer une salle Daily.co
     const dailyResponse = await fetch('https://api.daily.co/v1/rooms', {

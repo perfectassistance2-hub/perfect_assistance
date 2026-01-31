@@ -284,7 +284,7 @@ export default function MessagesMedecin() {
   if (loading) {
     return (
       <div className="flex h-screen">
-        <Sidebar medecin={{ id: '', prenom: '', nom: '', email: '', specialite: '' }} messagesNonLus={0} />
+        <Sidebar medecin={{ prenom: '', nom: '', specialite: '' }} messagesNonLus={0} />
         <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent"></div>

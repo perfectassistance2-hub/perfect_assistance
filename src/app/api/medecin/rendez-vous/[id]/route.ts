@@ -34,7 +34,7 @@ export async function GET(
     }
 
     const params = await context.params;
-    const rdvId = params.id;
+    const { id: rdvId } = await context.params;
 
     console.log('🔍 Recherche RDV:', rdvId);
 

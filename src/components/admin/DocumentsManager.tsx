@@ -21,6 +21,7 @@ type Medecin = {
   prenom: string;
   nom: string;
   specialite: string;
+  estActif?: boolean;
 };
 
 type DocumentsManagerProps = {

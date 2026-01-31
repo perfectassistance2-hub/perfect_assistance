@@ -39,45 +39,67 @@ export async function GET(request: NextRequest) {
     // Calculer le % de profil complet (simplifié)
     let profilComplet = 50; // Base
     if (patient.telephone) profilComplet += 10;
-    // Ajouter d'autres vérifications selon les champs remplis
 
     // 2. Récupérer le séjour actif
     const { data: sejourActif } = await supabaseAdmin
       .from('sejours')
-      .select(`
-        id,
-        typeTraitement,
-        dateArrivee,
-        dateDepart,
-        statut,
-        clinique:cliniques(nom, ville, adresse, telephone),
-        medecin:medecins(prenom, nom, specialite)
-      `)
+      .select('id, typeTraitement, dateArrivee, dateDepart, statut, cliniqueId, medecinId')
       .eq('patientId', patientId)
       .in('statut', ['PLANIFIE', 'EN_COURS'])
       .order('dateArrivee', { ascending: true })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    // 3. Récupérer les prochains rendez-vous (3 prochains)
+    // Charger les relations du séjour séparément
+    let sejourAvecRelations = null;
+    if (sejourActif) {
+      const { data: clinique } = await supabaseAdmin
+        .from('cliniques')
+        .select('nom, ville, adresse, telephone')
+        .eq('id', sejourActif.cliniqueId)
+        .maybeSingle();
+
+      const { data: medecin } = await supabaseAdmin
+        .from('medecins')
+        .select('prenom, nom, specialite')
+        .eq('id', sejourActif.medecinId)
+        .maybeSingle();
+
+      sejourAvecRelations = {
+        ...sejourActif,
+        clinique,
+        medecin
+      };
+    }
+
+    // 3. Récupérer les prochains rendez-vous
     const { data: prochainsRendezVous } = await supabaseAdmin
       .from('rendez_vous')
-      .select(`
-        id,
-        type,
-        datePrevue,
-        duree,
-        statut,
-        raison,
-        urlReunion,
-        medecin:medecins(prenom, nom, specialite),
-        clinique:cliniques(nom, ville)
-      `)
+      .select('id, type, datePrevue, duree, statut, raison, urlReunion, medecinId, cliniqueId')
       .eq('patientId', patientId)
       .in('statut', ['PLANIFIE', 'CONFIRME'])
       .gte('datePrevue', new Date().toISOString())
       .order('datePrevue', { ascending: true })
       .limit(3);
+
+    // Enrichir avec les relations
+    const rdvAvecRelations = await Promise.all(
+      (prochainsRendezVous || []).map(async (rdv) => {
+        const { data: medecin } = await supabaseAdmin
+          .from('medecins')
+          .select('prenom, nom, specialite')
+          .eq('id', rdv.medecinId)
+          .maybeSingle();
+
+        const { data: clinique } = await supabaseAdmin
+          .from('cliniques')
+          .select('nom, ville')
+          .eq('id', rdv.cliniqueId)
+          .maybeSingle();
+
+        return { ...rdv, medecin, clinique };
+      })
+    );
 
     // 4. Récupérer le devis actif
     const { data: devisActif } = await supabaseAdmin
@@ -87,9 +109,9 @@ export async function GET(request: NextRequest) {
       .in('statutPaiement', ['EN_ATTENTE', 'PARTIEL'])
       .order('dateCreation', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    // 5. Récupérer les documents récents (5 derniers)
+    // 5. Récupérer les documents récents
     const { data: documentsRecents } = await supabaseAdmin
       .from('documents')
       .select('id, titre, type, dateTeleversement, ajoutePar')
@@ -104,25 +126,19 @@ export async function GET(request: NextRequest) {
       .eq('destinataireId', patientId)
       .eq('estLu', false);
 
-    // 7. Compter les notifications non lues (si table existe)
-    // const { count: notificationsNonLues } = await supabaseAdmin
-    //   .from('notifications')
-    //   .select('*', { count: 'exact', head: true })
-    //   .eq('utilisateurId', patientId)
-    //   .eq('lue', false);
-    const notificationsNonLues = 0; // Placeholder
+    const notificationsNonLues = 0;
 
-    // 8. Créer la timeline d'activités récentes
+    // 7. Créer la timeline d'activités récentes
     const activitesRecentes = [];
 
     // Ajouter les rendez-vous récents
-    if (prochainsRendezVous && prochainsRendezVous.length > 0) {
+    if (rdvAvecRelations && rdvAvecRelations.length > 0) {
       activitesRecentes.push({
-        id: `rdv-${prochainsRendezVous[0].id}`,
+        id: `rdv-${rdvAvecRelations[0].id}`,
         type: 'rendez-vous',
         titre: 'Rendez-vous planifié',
-        description: `${prochainsRendezVous[0].type === 'VISIO_PRELIMINAIRE' ? 'Consultation vidéo' : 'Consultation en clinique'} avec ${prochainsRendezVous[0].medecin ? 'Dr. ' + prochainsRendezVous[0].medecin.nom : 'un médecin'}`,
-        date: prochainsRendezVous[0].datePrevue,
+        description: `${rdvAvecRelations[0].type === 'VISIO_PRELIMINAIRE' ? 'Consultation vidéo' : 'Consultation en clinique'} avec ${rdvAvecRelations[0].medecin ? 'Dr. ' + rdvAvecRelations[0].medecin.nom : 'un médecin'}`,
+        date: rdvAvecRelations[0].datePrevue,
         icon: '📅'
       });
     }
@@ -142,13 +158,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Ajouter le séjour si actif
-    if (sejourActif) {
+    if (sejourAvecRelations) {
       activitesRecentes.push({
-        id: `sejour-${sejourActif.id}`,
+        id: `sejour-${sejourAvecRelations.id}`,
         type: 'sejour',
         titre: 'Séjour programmé',
-        description: `${sejourActif.typeTraitement} à ${sejourActif.clinique?.nom}`,
-        date: sejourActif.dateArrivee,
+        description: `${sejourAvecRelations.typeTraitement} à ${sejourAvecRelations.clinique?.nom || 'la clinique'}`,
+        date: sejourAvecRelations.dateArrivee,
         icon: '🏥'
       });
     }
@@ -168,7 +184,7 @@ export async function GET(request: NextRequest) {
     // Trier par date décroissante
     activitesRecentes.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Retourner toutes les données avec le format success: true
+    // Retourner toutes les données
     return NextResponse.json({
       success: true,
       patient: {
@@ -181,8 +197,8 @@ export async function GET(request: NextRequest) {
         role: 'patient',
         profilComplet
       },
-      sejourActif: sejourActif || null,
-      prochainsRendezVous: prochainsRendezVous || [],
+      sejourActif: sejourAvecRelations || null,
+      prochainsRendezVous: rdvAvecRelations || [],
       devisActif: devisActif || null,
       documentsRecents: documentsRecents || [],
       messagesNonLus: messagesNonLus || 0,

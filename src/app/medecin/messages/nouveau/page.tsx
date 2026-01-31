@@ -1,12 +1,13 @@
 // Fichier: app/medecin/messages/nouveau/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/medecin/Sidebar';
 
-export default function NouveauMessagePage() {
+// Composant séparé qui utilise useSearchParams
+function NouveauMessageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const replyToId = searchParams.get('replyTo');
@@ -344,5 +345,23 @@ export default function NouveauMessagePage() {
         </form>
       </main>
     </div>
+  );
+}
+
+// Composant principal avec Suspense
+export default function NouveauMessagePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin h-16 w-16 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600">Chargement...</p>
+          </div>
+        </div>
+      }
+    >
+      <NouveauMessageContent />
+    </Suspense>
   );
 }

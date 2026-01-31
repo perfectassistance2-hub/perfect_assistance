@@ -183,7 +183,6 @@ export default function PatientDashboard() {
       {/* Sidebar */}
       <PatientSidebar 
         patient={patient} 
-        messagesNonLus={messagesNonLus}
         notificationsNonLues={notificationsNonLues}
       />
 

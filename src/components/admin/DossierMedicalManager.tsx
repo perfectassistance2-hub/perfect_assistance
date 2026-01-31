@@ -335,6 +335,10 @@ export default function DossierMedicalManager({
     );
   }
 
+   if (!dossier) {  // ✅ AJOUTER
+    return null;   // ✅ AJOUTER
+  }    
+
   // Mode affichage
   return (
     <div>
@@ -353,13 +357,17 @@ export default function DossierMedicalManager({
       {/* Actions */}
       <div className="mb-6 flex items-center justify-between">
         <div className="text-sm text-gray-500">
-          Dernière mise à jour : {new Date(dossier.dateMiseAJour).toLocaleDateString('fr-FR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
+          {dossier && (
+            <div className="text-sm text-gray-500">
+              Dernière mise à jour : {new Date(dossier.dateMiseAJour).toLocaleDateString('fr-FR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </div>
+          )}
         </div>
         <div className="flex space-x-3">
           {canEdit && (

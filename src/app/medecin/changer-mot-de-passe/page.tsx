@@ -1,13 +1,14 @@
 // Fichier: app/medecin/changer-mot-de-passe/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Footer from '@/components/Footer';
 
-export default function ChangerMotDePasseMedecinPage() {
+// Composant séparé qui utilise useSearchParams
+function ChangerMotDePasseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isObligatoire = searchParams.get('obligatoire') === 'true';
@@ -315,5 +316,23 @@ export default function ChangerMotDePasseMedecinPage() {
 
       <Footer />
     </div>
+  );
+}
+
+// Composant principal avec Suspense
+export default function ChangerMotDePasseMedecinPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-[#4DB8A8]/5 via-blue-50/30 to-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#4DB8A8] mx-auto mb-4"></div>
+            <p className="text-gray-600">Chargement...</p>
+          </div>
+        </div>
+      }
+    >
+      <ChangerMotDePasseContent />
+    </Suspense>
   );
 }

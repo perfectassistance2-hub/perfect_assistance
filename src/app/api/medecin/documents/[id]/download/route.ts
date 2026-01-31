@@ -27,7 +27,7 @@ export async function GET(
     }
 
     const params = await context.params;
-    const documentId = params.id;
+    const { id: documentId } = await context.params;
 
     console.log('📥 Médecin Download - Document:', documentId);
 

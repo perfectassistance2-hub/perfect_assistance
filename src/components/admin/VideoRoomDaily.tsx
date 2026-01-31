@@ -3,7 +3,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import DailyIframe, { DailyCall, DailyEventObjectParticipant } from "@daily-co/daily-js";
+import DailyIframe, { 
+  DailyCall, 
+  DailyEventObjectParticipant,
+  DailyEventObjectParticipantLeft 
+} from "@daily-co/daily-js";
 
 type VideoRoomDailyProps = {
   roomUrl: string;
@@ -111,7 +115,7 @@ export default function VideoRoomDaily({
     updateParticipantsCount();
   }, []);
 
-  const handleParticipantLeft = useCallback((event: DailyEventObjectParticipant) => {
+  const handleParticipantLeft = useCallback((event: DailyEventObjectParticipantLeft) => {
     console.log("👋 Participant parti:", event.participant.user_name);
     updateParticipantsCount();
   }, []);
