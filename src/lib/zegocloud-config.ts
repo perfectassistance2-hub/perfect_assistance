@@ -8,6 +8,24 @@ export const ZEGOCLOUD_CONFIG = {
 };
 
 /**
+ * Obtenir l'URL de base de l'application
+ */
+function getBaseUrl(): string {
+  // En production, utiliser la variable d'environnement ou détecter automatiquement
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  
+  // Détection automatique pour Vercel
+  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+    return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`;
+  }
+  
+  // Fallback pour le développement local
+  return 'http://localhost:3000';
+}
+
+/**
  * Générer un ID de room unique pour ZegoCloud
  */
 export function generateZegoRoomId(): string {
@@ -26,7 +44,7 @@ export function generateZegoAccessLink(
   userName: string,
   role: 'patient' | 'medecin' | 'admin'
 ): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const baseUrl = getBaseUrl();
   return `${baseUrl}/visio/zego/${roomId}?userName=${encodeURIComponent(userName)}&role=${role}`;
 }
 
