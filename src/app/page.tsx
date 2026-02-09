@@ -99,25 +99,25 @@ export default function HomePage() {
 
   const testimonials = [
     {
-      name: "Sarah M.",
-      location: "Paris, France",
+      name: "Vicky Mahamba",
+      location: "RD. Congo",
       rating: 5,
-      text: "Une expérience exceptionnelle du début à la fin. L'hébergement était parfait, proche de la clinique, et l'équipe a été aux petits soins.",
-      treatment: "Chirurgie esthétique - 7 jours"
+      text: "Perfect Assistance a vraiment été un pilier pour nous tout au long de notre parcours médical. Dès les premières démarches de notre voyage jusqu’à la fin de notre séjour, nous avons bénéficié d’un accompagnement sérieux, rassurant, efficace et parfaitement organisé. Leur professionnalisme, leur disponibilité et la qualité de leur orientation vers des médecins compétents et qualifiés nous ont immédiatement mis en confiance. Nous avons particulièrement apprécié la qualité de l’assistance, la disponibilité et le sens du détail dont l’équipe a fait preuve. Chaque étape a été gérée avec rigueur et attention, ce qui a rendu notre expérience fluide et sans stress.",
+      treatment: ""
     },
     {
-      name: "Mohammed K.",
-      location: "Casablanca, Maroc",
+      name: "Mamie Masikini",
+      location: "RD. Congo",
       rating: 5,
-      text: "Grâce à Perfect Assistance, j'ai pu me faire soigner en Turquie. L'appartement était confortable et l'accompagnement impeccable.",
-      treatment: "Soins dentaires - 14 jours"
+      text: "Bonjour la famille. Moi ,sans l'assistance de perfect; il n'y aurait Pas de vie au maroc✌️ Du point de vu accompagnement, coût, rendez vous, honnêteté,visite... Pour moi il n'y a pas deux comme perfect assistance dans tout le territoire Marocaine. Merci de tout cœur Pour tout vos services rendus. 🙏🙏 Avec perfect assistance rien n'est impossible .👌",
+      treatment: ""
     },
     {
-      name: "Claire D.",
-      location: "Lyon, France",
+      name: "Candide Olakouara",
+      location: "Congo Brazzaville",
       rating: 5,
-      text: "La résidence médicalisée m'a rassurée après mon opération. Le personnel médical sur place et le confort étaient parfaits.",
-      treatment: "Chirurgie orthopédique - 21 jours"
+      text: "Très bonne association, l’accompagnement est totale de la recommandation des médecins, la consultation jusqu’à la prise en charge du malade. Ma mère s’est faite opérer d’une arthrose du genou gauche il y a quelques semaines. Rien à signaler.",
+      treatment: "Arthrose du genou gauche"
     }
   ];
 
@@ -263,94 +263,94 @@ export default function HomePage() {
 
           {/* Section Vidéos YouTube */}
           <section className="py-20 bg-gradient-to-br from-gray-50 to-white">
-  <div className="max-w-7xl mx-auto px-4">
-    <div className="text-center mb-16">
-      <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full mb-4 shadow-md">
-        <span className="text-xl">🎥</span>
-        <span className="text-sm font-medium text-[#4DB8A8]">Nos Vidéos</span>
-      </div>
-      <h2 className="text-4xl font-bold text-gray-900 mb-4">
-        Découvrez nos services en vidéo
-      </h2>
-      <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-        Visionnez nos témoignages et présentations
-      </p>
-    </div>
-
-    {/* Container avec navigation */}
-    <div className="relative">
-      {/* Bouton Gauche */}
-      <button
-        onClick={() => scrollVideos('left')}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white backdrop-blur-sm p-3 rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-        disabled={videoScroll === 0}
-      >
-        <svg className="w-6 h-6 text-[#4DB8A8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-      </button>
-
-      {/* Bouton Droite */}
-      <button
-        onClick={() => scrollVideos('right')}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white backdrop-blur-sm p-3 rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <svg className="w-6 h-6 text-[#4DB8A8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-
-      {/* Container vidéos - SANS barre de défilement */}
-      <div 
-        id="videos-container"
-        className="overflow-x-auto scrollbar-hide scroll-smooth px-12"
-        style={{ 
-          scrollbarWidth: 'none', // Firefox
-          msOverflowStyle: 'none' // IE/Edge
-        }}
-      >
-        <div className="flex space-x-6">
-          {youtubeVideos.map((video, index) => (
-            <div 
-              key={index}
-              className="flex-none w-[380px]"
-            >
-              <div className="bg-white rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:scale-105">
-                <div className="aspect-video relative group">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${video.id}`}
-                    title={video.title}
-                    className="w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none"></div>
+            <div className="max-w-7xl mx-auto px-4">
+              <div className="text-center mb-16">
+                <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full mb-4 shadow-md">
+                  <span className="text-xl">🎥</span>
+                  <span className="text-sm font-medium text-[#4DB8A8]">Nos Vidéos</span>
                 </div>
-                <div className="p-4">
-                  <h4 className="font-bold text-gray-900">{video.title}</h4>
+                <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                  Découvrez nos services en vidéo
+                </h2>
+                <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                  Visionnez nos témoignages et présentations
+                </p>
+              </div>
+
+              {/* Container avec navigation */}
+              <div className="relative">
+                {/* Bouton Gauche */}
+                <button
+                  onClick={() => scrollVideos('left')}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white backdrop-blur-sm p-3 rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={videoScroll === 0}
+                >
+                  <svg className="w-6 h-6 text-[#4DB8A8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* Bouton Droite */}
+                <button
+                  onClick={() => scrollVideos('right')}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white backdrop-blur-sm p-3 rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-6 h-6 text-[#4DB8A8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
+                {/* Container vidéos - SANS barre de défilement */}
+                <div 
+                  id="videos-container"
+                  className="overflow-x-auto scrollbar-hide scroll-smooth px-12"
+                  style={{ 
+                    scrollbarWidth: 'none', // Firefox
+                    msOverflowStyle: 'none' // IE/Edge
+                  }}
+                >
+                  <div className="flex space-x-6">
+                    {youtubeVideos.map((video, index) => (
+                      <div 
+                        key={index}
+                        className="flex-none w-[380px]"
+                      >
+                        <div className="bg-white rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:scale-105">
+                          <div className="aspect-video relative group">
+                            <iframe
+                              src={`https://www.youtube.com/embed/${video.id}`}
+                              title={video.title}
+                              className="w-full h-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            ></iframe>
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none"></div>
+                          </div>
+                          <div className="p-4">
+                            <h4 className="font-bold text-gray-900">{video.title}</h4>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
 
-    {/* Indicateurs de position (optionnel) */}
-    <div className="flex justify-center space-x-2 mt-8">
-      {youtubeVideos.map((_, idx) => (
-        <div
-          key={idx}
-          className={`h-2 rounded-full transition-all ${
-            Math.floor(videoScroll / 400) === idx 
-              ? 'w-8 bg-[#4DB8A8]' 
-              : 'w-2 bg-gray-300'
-          }`}
-        />
-      ))}
-    </div>
-  </div>
-</section>
+              {/* Indicateurs de position (optionnel) */}
+              <div className="flex justify-center space-x-2 mt-8">
+                {youtubeVideos.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={`h-2 rounded-full transition-all ${
+                      Math.floor(videoScroll / 400) === idx 
+                        ? 'w-8 bg-[#4DB8A8]' 
+                        : 'w-2 bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {medicalServices.map((service, idx) => (
