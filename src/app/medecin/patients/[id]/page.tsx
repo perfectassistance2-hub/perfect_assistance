@@ -39,6 +39,7 @@ export default function DetailPatientPage() {
         return;
       }
       const dashData = await dashResponse.json();
+      console.log('📊 Dashboard data:', dashData);
       setMedecin(dashData.medecin);
 
       // Charger le patient
@@ -47,6 +48,10 @@ export default function DetailPatientPage() {
         throw new Error('Erreur chargement patient');
       }
       const patientData = await patientResponse.json();
+      console.log('📊 Patient data:', patientData);
+      console.log('📊 Patient data keys:', Object.keys(patientData));
+      console.log('📊 Has patient?', !!patientData.patient);
+      console.log('📊 Has success?', !!patientData.success);
       setData(patientData);
     } catch (error) {
       console.error('Erreur:', error);
@@ -126,6 +131,7 @@ export default function DetailPatientPage() {
     return types[type] || types['AUTRE'];
   };
 
+  // CORRECTION: Afficher le loader pendant le chargement
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -134,9 +140,46 @@ export default function DetailPatientPage() {
     );
   }
 
-  if (!data || !medecin) return null;
+  // CORRECTION: Vérifier que les données sont chargées AVANT de les utiliser
+  if (!data || !medecin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <span className="text-6xl mb-4 block">⚠️</span>
+          <p className="text-gray-600">Chargement des données...</p>
+          {data && (
+            <div className="mt-4 text-xs text-gray-500">
+              <p>Data keys: {Object.keys(data).join(', ')}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-  const { patient, dossierMedical, sejours, rendezVous, documents } = data;
+  // CORRECTION: Extraire patient selon la structure de la réponse
+  // L'API peut retourner soit { patient, dossierMedical, ... } soit { success: true, patient, ... }
+  const patient = data.patient;
+  const dossierMedical = data.dossierMedical || null;
+  const sejours = data.sejours || [];
+  const rendezVous = data.rendezVous || [];
+  const documents = data.documents || [];
+
+  // Si pas de patient après extraction, afficher erreur
+  if (!patient) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <span className="text-6xl mb-4 block">⚠️</span>
+          <p className="text-gray-600">Données patient non disponibles</p>
+          <div className="mt-4 text-xs text-gray-500 max-w-md mx-auto text-left bg-gray-100 p-4 rounded">
+            <p className="font-bold mb-2">Structure reçue:</p>
+            <pre>{JSON.stringify(Object.keys(data), null, 2)}</pre>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -191,7 +234,7 @@ export default function DetailPatientPage() {
           </div>
 
           {/* Séjour en cours */}
-          {sejours.length > 0 && sejours[0].statut === 'EN_COURS' && (
+          {sejours && sejours.length > 0 && sejours[0].statut === 'EN_COURS' && (
             <div className="mt-6 pt-6 border-t border-gray-200">
               <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                 <div className="flex items-center space-x-2 mb-2">
@@ -246,7 +289,7 @@ export default function DetailPatientPage() {
             >
               <span>📄 Documents</span>
               <span className="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                {documents.length}
+                {documents?.length || 0}
               </span>
             </button>
             <button
@@ -294,7 +337,7 @@ export default function DetailPatientPage() {
                 {/* Séjours */}
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Séjours médicaux</h3>
-                  {sejours.length === 0 ? (
+                  {!sejours || sejours.length === 0 ? (
                     <p className="text-gray-600 text-center py-8">Aucun séjour enregistré</p>
                   ) : (
                     <div className="space-y-3">
@@ -410,7 +453,7 @@ export default function DetailPatientPage() {
                   </Link>
                 </div>
 
-                {documents.length === 0 ? (
+                {!documents || documents.length === 0 ? (
                   <div className="text-center py-12">
                     <span className="text-6xl mb-4 block">📄</span>
                     <p className="text-gray-600 mb-4">Aucun document disponible</p>
@@ -503,7 +546,7 @@ export default function DetailPatientPage() {
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-6">Historique des consultations</h3>
                 
-                {rendezVous.length === 0 ? (
+                {!rendezVous || rendezVous.length === 0 ? (
                   <div className="text-center py-12">
                     <span className="text-6xl mb-4 block">📅</span>
                     <p className="text-gray-600">Aucun rendez-vous enregistré</p>

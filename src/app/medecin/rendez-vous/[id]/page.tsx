@@ -1,19 +1,38 @@
-// Fichier: app/medecin/rendez-vous/[id]/page.tsx
+// app/medecin/rendez-vous/[id]/page.tsx
+
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import React, { useState, useEffect, use } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/medecin/Sidebar';
 
-export default function DetailRendezVousPage() {
+interface ConsultationVideo {
+  id: string;
+  titre: string;
+  plateforme: 'DAILY' | 'ZEGOCLOUD';
+  daily_room_name?: string;
+  daily_room_url?: string;
+  zego_room_id?: string;
+  lien_patient: string;
+  lien_medecin: string;
+  statut: string;
+  date_debut: string;
+  duree: number;
+  enregistrement_autorise: boolean;
+}
+
+export default function DetailRendezVousPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
-  const params = useParams();
-  const rdvId = params.id as string;
+  const resolvedParams = use(params);
+  const rdvId = resolvedParams.id;
 
   const [medecin, setMedecin] = useState<any>(null);
   const [rdv, setRdv] = useState<any>(null);
-  const [patient, setPatient] = useState<any>(null);
   const [dossierMedical, setDossierMedical] = useState<any>(null);
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +58,6 @@ export default function DetailRendezVousPage() {
       
       const rdvData = await rdvResponse.json();
       setRdv(rdvData.rendezVous);
-      setPatient(rdvData.rendezVous.patient);
       setDossierMedical(rdvData.dossierMedical);
       setDocuments(rdvData.documents || []);
     } catch (error) {
@@ -50,21 +68,22 @@ export default function DetailRendezVousPage() {
     }
   };
 
-  const canJoinMeeting = () => {
-    if (!rdv || rdv.type !== 'EN_LIGNE') return false;
+  // ✅ NOUVEAU - Vérifier si une visio peut être rejointe
+  const canJoinVisio = (consultation: ConsultationVideo) => {
+    if (rdv?.statut === 'ANNULE') return false;
+    if (!consultation || !consultation.lien_medecin) return false;
     
-    const rdvDate = new Date(rdv.datePrevue);
+    const visioDate = new Date(consultation.date_debut);
     const now = new Date();
-    const diff = rdvDate.getTime() - now.getTime();
-    const minutesDiff = diff / (1000 * 60);
+    const diff = (visioDate.getTime() - now.getTime()) / 1000 / 60; // en minutes
     
-    return minutesDiff <= 5 && minutesDiff >= -(rdv.duree || 30);
+    // Peut rejoindre 15 min avant et pendant la durée
+    return diff <= 15 && diff >= -consultation.duree;
   };
 
   const handleDownloadDocument = async (docId: string, nomFichier: string) => {
     setDownloadingDoc(docId);
     try {
-      // L'API proxy le fichier directement
       window.open(`/api/medecin/documents/${docId}/download`, '_blank');
     } catch (error) {
       console.error('Erreur:', error);
@@ -77,7 +96,6 @@ export default function DetailRendezVousPage() {
   const handleViewDocument = async (docId: string) => {
     setDownloadingDoc(docId);
     try {
-      // L'API proxy le fichier pour aperçu
       window.open(`/api/medecin/documents/${docId}/preview`, '_blank');
     } catch (error) {
       console.error('Erreur:', error);
@@ -98,6 +116,24 @@ export default function DetailRendezVousPage() {
     return age;
   };
 
+  // ✅ NOUVEAU - Badge plateforme
+  const getPlatformBadge = (plateforme: string) => {
+    if (plateforme === 'DAILY') {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+          📹 Daily.co
+        </span>
+      );
+    } else if (plateforme === 'ZEGOCLOUD') {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+          🎥 ZegoCloud
+        </span>
+      );
+    }
+    return null;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -107,6 +143,9 @@ export default function DetailRendezVousPage() {
   }
 
   if (!rdv || !medecin) return null;
+
+  const patient = rdv.patient;
+  const consultations = rdv.consultationVideo || [];
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -122,72 +161,142 @@ export default function DetailRendezVousPage() {
           </Link>
         </div>
 
-            {/* Header RDV */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
-            <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-2xl">
-                    {rdv.type === 'EN_LIGNE' ? '🎥' : '🏥'}
-                    </span>
+        {/* Header RDV */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                <span className="text-2xl">
+                  {consultations.length > 0 ? '🎥' : '🏥'}
+                </span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {consultations.length > 0 ? 'Consultation en ligne' : 'Consultation sur place'}
+                </h1>
+                <p className="text-gray-600">
+                  {new Date(rdv.datePrevue).toLocaleDateString('fr-FR', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })} à {new Date(rdv.datePrevue).toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                rdv.statut === 'CONFIRME'
+                  ? 'bg-green-100 text-green-700'
+                  : rdv.statut === 'PLANIFIE'
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : rdv.statut === 'TERMINE'
+                  ? 'bg-gray-100 text-gray-700'
+                  : 'bg-red-100 text-red-700'
+              }`}>
+                {rdv.statut}
+              </span>
+            </div>
+          </div>
+
+          {/* ✅ NOUVEAU - Section Visioconférences (TOUTES) */}
+          {consultations.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                  <span className="text-xl mr-2">🎥</span>
+                  Consultations en ligne ({consultations.length})
+                </h3>
+                
+                <div className="space-y-3">
+                  {consultations.map((consultation: ConsultationVideo) => {
+                    const peutRejoindre = canJoinVisio(consultation);
+                    
+                    return (
+                      <div 
+                        key={consultation.id}
+                        className={`border-2 rounded-lg p-3 transition-all ${
+                          peutRejoindre 
+                            ? 'border-green-300 bg-green-50' 
+                            : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <h4 className="font-bold text-gray-900">{consultation.titre}</h4>
+                              {getPlatformBadge(consultation.plateforme)}
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                consultation.statut === 'PLANIFIE'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : consultation.statut === 'EN_COURS'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {consultation.statut}
+                              </span>
+                              {peutRejoindre && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 animate-pulse">
+                                  🟢 Accessible
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="space-y-1 text-sm text-gray-600">
+                              <p>📅 {new Date(consultation.date_debut).toLocaleDateString('fr-FR')} à {new Date(consultation.date_debut).toLocaleTimeString('fr-FR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}</p>
+                              <p>⏱️ Durée: {consultation.duree} minutes</p>
+                              {consultation.enregistrement_autorise && (
+                                <p className="text-orange-600">
+                                  🔴 Enregistrement autorisé
+                                  {consultation.plateforme === 'ZEGOCLOUD' && ' (non disponible sur ZegoCloud)'}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {peutRejoindre && (
+                            <Link href={`/medecin/rendez-vous/${rdvId}/consultation`}>
+                              <button className="ml-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-all shadow-md">
+                                🎥 Rejoindre
+                              </button>
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {patient && (
+            <div className="pt-4 border-t border-gray-200 mt-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold">
+                    {patient.prenom[0]}{patient.nom[0]}
+                  </span>
                 </div>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">
-                    {rdv.type === 'EN_LIGNE' ? 'Consultation en ligne' : 'Consultation sur place'}
-                    </h1>
-                    <p className="text-gray-600">
-                    {new Date(rdv.datePrevue).toLocaleDateString('fr-FR', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                    })} à {new Date(rdv.datePrevue).toLocaleTimeString('fr-FR', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    })}
-                    </p>
+                  <p className="font-medium text-gray-900">
+                    {patient.prenom} {patient.nom}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {calculateAge(patient.dateNaissance)} ans • {patient.sexe}
+                  </p>
                 </div>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    rdv.statut === 'CONFIRME'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-yellow-100 text-yellow-700'
-                }`}>
-                    {rdv.statut}
-                </span>
-
-                {canJoinMeeting() && (
-                    <Link href={`/medecin/rendez-vous/${rdv.id}/consultation`}>
-                    <button className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl transition-all animate-pulse shadow-lg">
-                        🎥 Rejoindre la visio
-                    </button>
-                    </Link>
-                )}
-                </div>
+              </div>
             </div>
-
-            {patient && (
-                <div className="pt-4 border-t border-gray-200">
-                <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">
-                        {patient.prenom[0]}{patient.nom[0]}
-                    </span>
-                    </div>
-                    <div>
-                    <p className="font-medium text-gray-900">
-                        {patient.prenom} {patient.nom}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                        {calculateAge(patient.dateNaissance)} ans • {patient.sexe}
-                    </p>
-                    </div>
-                </div>
-                </div>
-            )}
-            </div>
+          )}
+        </div>
 
         {/* Onglets */}
         <div className="bg-white rounded-t-2xl shadow-sm">
@@ -253,7 +362,7 @@ export default function DetailRendezVousPage() {
                 <div className="p-4 bg-gray-50 rounded-xl">
                   <p className="text-sm text-gray-600 mb-1">Type</p>
                   <p className="font-medium text-gray-900">
-                    {rdv.type === 'EN_LIGNE' ? '🎥 En ligne' : '🏥 Sur place'}
+                    {consultations.length > 0 ? '🎥 En ligne' : '🏥 Sur place'}
                   </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl">
@@ -276,13 +385,17 @@ export default function DetailRendezVousPage() {
                 </div>
               )}
 
-              {rdv.sejour && (
+              {rdv.sejours && rdv.sejours.length > 0 && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
-                  <p className="text-sm font-medium text-gray-700 mb-2">🏥 Lié au séjour</p>
-                  <p className="text-gray-900">{rdv.sejour.typeTraitement}</p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Du {new Date(rdv.sejour.dateArrivee).toLocaleDateString('fr-FR')} au {new Date(rdv.sejour.dateDepart).toLocaleDateString('fr-FR')}
-                  </p>
+                  <p className="text-sm font-medium text-gray-700 mb-2">🏥 Séjours liés</p>
+                  {rdv.sejours.map((sejour: any) => (
+                    <div key={sejour.id} className="mb-2 last:mb-0">
+                      <p className="text-gray-900 font-medium">{sejour.typeTraitement}</p>
+                      <p className="text-sm text-gray-600">
+                        Du {new Date(sejour.dateArrivee).toLocaleDateString('fr-FR')} au {new Date(sejour.dateDepart).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

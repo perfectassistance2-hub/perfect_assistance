@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -35,9 +35,10 @@ type MedecinReferent = {
 export default function DetailMedecinReferentPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
+  const resolvedParams = use(params);
   const [medecin, setMedecin] = useState<MedecinReferent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -45,11 +46,11 @@ export default function DetailMedecinReferentPage({
 
   useEffect(() => {
     loadMedecin();
-  }, []);
+  }, [resolvedParams.id]);
 
   const loadMedecin = async () => {
     try {
-      const response = await fetch(`/api/admin/medecins-referents/${params.id}`);
+      const response = await fetch(`/api/admin/medecins-referents/${resolvedParams.id}`);
       
       if (!response.ok) {
         throw new Error("Médecin référent non trouvé");

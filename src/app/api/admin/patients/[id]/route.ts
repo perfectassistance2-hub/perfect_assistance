@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { isEmailAlreadyUsed } from "@/lib/email-validator"; // ✅ Import pour PATCH
 
 // GET - Détails d'un patient avec toutes ses relations
 export async function GET(
@@ -45,13 +46,28 @@ export async function GET(
       .eq('patientId', patientId)
       .single();
 
-    // Récupérer les rendez-vous avec relations
+    // ✅ CORRECTION - Récupérer les rendez-vous AVEC consultations vidéo
     const { data: rendezVous } = await supabaseAdmin
       .from('rendez_vous')
       .select(`
         *,
-        medecin:medecins(prenom, nom),
-        clinique:cliniques(nom)
+        medecin:medecins(id, prenom, nom, specialite),
+        clinique:cliniques(id, nom, ville, adresse),
+        consultationVideo:consultations_video!rendez_vous_id(
+          id,
+          titre,
+          plateforme,
+          daily_room_name,
+          daily_room_url,
+          zego_room_id,
+          lien_patient,
+          lien_medecin,
+          statut,
+          date_debut,
+          date_fin,
+          duree,
+          enregistrement_autorise
+        )
       `)
       .eq('patientId', patientId)
       .order('datePrevue', { ascending: false });
@@ -113,17 +129,41 @@ export async function PATCH(
     const { id: patientId } = await params;
     const updates = await request.json();
 
+    console.log('📝 PATCH patient:', patientId, updates);
+
     // Retirer les champs non modifiables
     delete updates.id;
     delete updates.dateCreation;
     delete updates.motDePasse; // Le mot de passe se change via une route dédiée
 
-    // ✅ CORRECTION : Convertir chaîne vide en NULL
+    // ✅ NOUVEAU - Vérifier l'email si modifié
+    if (updates.email && updates.email !== "") {
+      // Récupérer l'email actuel du patient
+      const { data: currentPatient } = await supabaseAdmin
+        .from('patients')
+        .select('email')
+        .eq('id', patientId)
+        .single();
+
+      // Vérifier uniquement si l'email a changé
+      if (currentPatient && updates.email.toLowerCase() !== currentPatient.email.toLowerCase()) {
+        const emailCheck = await isEmailAlreadyUsed(updates.email, patientId, 'patients');
+        if (emailCheck.isUsed) {
+          console.log(`❌ Email déjà utilisé dans: ${emailCheck.usedIn}`);
+          return NextResponse.json(
+            { error: emailCheck.message },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // Convertir chaîne vide en NULL
     if (updates.medecinreferentid === "") {
       updates.medecinreferentid = null;
     }
 
-    // ✅ CORRECTION : Vérifier uniquement si valeur non vide
+    // Vérifier uniquement si valeur non vide
     if (updates.medecinreferentid !== undefined && 
         updates.medecinreferentid !== null && 
         updates.medecinreferentid !== "") {
@@ -171,6 +211,8 @@ export async function PATCH(
       );
     }
 
+    console.log('✅ Patient mis à jour:', updatedPatient.id);
+
     // Retirer le mot de passe
     const { motDePasse: _, ...patientSansMotDePasse } = updatedPatient;
 
@@ -195,6 +237,8 @@ export async function DELETE(
   try {
     const { id: patientId } = await params;
 
+    console.log('🗑️ Suppression patient:', patientId);
+
     // Supprimer le patient (cascade delete sur les relations)
     const { error } = await supabaseAdmin
       .from('patients')
@@ -205,14 +249,16 @@ export async function DELETE(
       throw error;
     }
 
+    console.log('✅ Patient supprimé');
+
     return NextResponse.json({
       success: true,
       message: "Patient supprimé avec succès",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erreur suppression patient:", error);
     return NextResponse.json(
-      { error: "Erreur lors de la suppression du patient" },
+      { error: error.message || "Erreur lors de la suppression du patient" },
       { status: 500 }
     );
   }

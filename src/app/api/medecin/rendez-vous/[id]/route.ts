@@ -1,4 +1,5 @@
-// Fichier: app/api/medecin/rendez-vous/[id]/route.ts
+// app/api/medecin/rendez-vous/[id]/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { jwtVerify } from 'jose';
@@ -33,19 +34,32 @@ export async function GET(
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
-    const params = await context.params;
     const { id: rdvId } = await context.params;
 
     console.log('🔍 Recherche RDV:', rdvId);
 
-    // ✅ CORRECTION : Pas de JOIN avec sejours
+    // ✅ Récupérer le RDV avec la consultation vidéo (support multi-plateforme)
     const { data: rendezVous, error } = await supabaseAdmin
       .from("rendez_vous")
       .select(`
         *,
         patient:patients(*),
         clinique:cliniques(*),
-        medecin:medecins(id, prenom, nom)
+        medecin:medecins(id, prenom, nom),
+        consultationVideo:consultations_video!rendez_vous_id(
+          id,
+          titre,
+          plateforme,
+          daily_room_name,
+          daily_room_url,
+          zego_room_id,
+          lien_patient,
+          lien_medecin,
+          statut,
+          date_debut,
+          duree,
+          enregistrement_autorise
+        )
       `)
       .eq("id", rdvId)
       .eq("medecinId", user.userId)
@@ -69,7 +83,7 @@ export async function GET(
 
     console.log('✅ RDV trouvé');
 
-    // ✅ Récupérer les séjours du patient avec ce médecin (séparément)
+    // Récupérer les séjours du patient avec ce médecin
     const { data: sejours } = await supabaseAdmin
       .from("sejours")
       .select(`
@@ -105,7 +119,7 @@ export async function GET(
       success: true, 
       rendezVous: {
         ...rendezVous,
-        sejours: sejours || [] // Ajouter les séjours au RDV
+        sejours: sejours || []
       },
       dossierMedical: dossierMedical || null,
       documents: documents || []

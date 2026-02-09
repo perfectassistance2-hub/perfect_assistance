@@ -53,6 +53,7 @@ export default function NouvelleConsultationVideoPage() {
     medecinId: "",
     rendezVousId: preselectedRdvId || "",
     enregistrementAutorise: false,
+    plateforme: "DAILY" as "DAILY" | "ZEGOCLOUD", // ✅ NOUVEAU
   });
 
   useEffect(() => {
@@ -67,16 +68,15 @@ export default function NouvelleConsultationVideoPage() {
     }
   }, [formData.patientId]);
 
-  // Auto-remplir depuis le rendez-vous sélectionné
   useEffect(() => {
     if (formData.rendezVousId && rendezVous.length > 0) {
-      const rdv = rendezVous.find(r => r.id === formData.rendezVousId);
+      const rdv = rendezVous.find((r) => r.id === formData.rendezVousId);
       if (rdv) {
         const dateObj = new Date(rdv.datePrevue);
-        const date = dateObj.toISOString().split('T')[0];
+        const date = dateObj.toISOString().split("T")[0];
         const time = dateObj.toTimeString().slice(0, 5);
 
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           dateDebut: date,
           heureDebut: time,
@@ -84,9 +84,6 @@ export default function NouvelleConsultationVideoPage() {
           titre: rdv.raison || prev.titre || "Consultation vidéo",
         }));
       }
-    } else if (formData.rendezVousId === "" && formData.patientId) {
-      // Si on désélectionne le RDV, garder le patient mais réinitialiser les autres champs
-      // Ne rien faire ici pour permettre la saisie manuelle
     }
   }, [formData.rendezVousId, rendezVous]);
 
@@ -110,7 +107,9 @@ export default function NouvelleConsultationVideoPage() {
 
   const loadRendezVousPatient = async (patientId: string) => {
     try {
-      const response = await fetch(`/api/admin/rendez-vous?patientId=${patientId}&statut=PLANIFIE`);
+      const response = await fetch(
+        `/api/admin/rendez-vous?patientId=${patientId}&statut=PLANIFIE`
+      );
       if (response.ok) {
         const data = await response.json();
         setRendezVous(data);
@@ -155,6 +154,7 @@ export default function NouvelleConsultationVideoPage() {
           medecinId: formData.medecinId || null,
           rendezVousId: formData.rendezVousId || null,
           enregistrementAutorise: formData.enregistrementAutorise,
+          plateforme: formData.plateforme, // ✅ NOUVEAU
           creePar: user.id,
         }),
       });
@@ -180,7 +180,7 @@ export default function NouvelleConsultationVideoPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target;
-    
+
     if (type === "checkbox") {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
@@ -201,9 +201,7 @@ export default function NouvelleConsultationVideoPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           🎥 Nouvelle visioconférence
         </h1>
-        <p className="text-gray-600">
-          Créer une consultation en ligne avec Daily.co
-        </p>
+        <p className="text-gray-600">Créer une consultation en ligne</p>
       </div>
 
       {error && (
@@ -219,6 +217,86 @@ export default function NouvelleConsultationVideoPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ✅ NOUVEAU - Sélection de la plateforme */}
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            🎮 Plateforme de visioconférence
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label
+              className={`relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                formData.plateforme === "DAILY"
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-300 bg-white hover:border-gray-400"
+              }`}
+            >
+              <input
+                type="radio"
+                name="plateforme"
+                value="DAILY"
+                checked={formData.plateforme === "DAILY"}
+                onChange={handleChange}
+                className="sr-only"
+              />
+              <div className="flex items-center space-x-3 w-full">
+                <div className="text-3xl">📹</div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">Daily.co</p>
+                  <p className="text-xs text-gray-600">
+                    Plateforme professionnelle avec enregistrement
+                  </p>
+                </div>
+                {formData.plateforme === "DAILY" && (
+                  <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                )}
+              </div>
+            </label>
+
+            <label
+              className={`relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                formData.plateforme === "ZEGOCLOUD"
+                  ? "border-purple-500 bg-purple-50"
+                  : "border-gray-300 bg-white hover:border-gray-400"
+              }`}
+            >
+              <input
+                type="radio"
+                name="plateforme"
+                value="ZEGOCLOUD"
+                checked={formData.plateforme === "ZEGOCLOUD"}
+                onChange={handleChange}
+                className="sr-only"
+              />
+              <div className="flex items-center space-x-3 w-full">
+                <div className="text-3xl">🎥</div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">ZegoCloud</p>
+                  <p className="text-xs text-gray-600">
+                    Solution cloud scalable et performante
+                  </p>
+                </div>
+                {formData.plateforme === "ZEGOCLOUD" && (
+                  <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                )}
+              </div>
+            </label>
+          </div>
+
+          <div className="mt-4 bg-white rounded-lg p-3">
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold">💡 Info :</span>{" "}
+              {formData.plateforme === "DAILY"
+                ? "Daily.co offre des fonctionnalités d'enregistrement professionnel et une interface personnalisable."
+                : "ZegoCloud garantit une faible latence et une excellente qualité vidéo, idéal pour les consultations simultanées."}
+            </p>
+          </div>
+        </div>
+
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
             Informations de la consultation
@@ -307,9 +385,7 @@ export default function NouvelleConsultationVideoPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Participants
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Participants</h2>
 
           <div className="space-y-4">
             <div>
@@ -373,10 +449,12 @@ export default function NouvelleConsultationVideoPage() {
               {rendezVous.map((rdv) => (
                 <option key={rdv.id} value={rdv.id}>
                   {new Date(rdv.datePrevue).toLocaleDateString("fr-FR")} à{" "}
-                  {new Date(rdv.datePrevue).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })} -{" "}
-                  {rdv.raison || "Sans objet"}
-                  {rdv.medecin &&
-                    ` (Dr. ${rdv.medecin.prenom} ${rdv.medecin.nom})`}
+                  {new Date(rdv.datePrevue).toLocaleTimeString("fr-FR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}{" "}
+                  - {rdv.raison || "Sans objet"}
+                  {rdv.medecin && ` (Dr. ${rdv.medecin.prenom} ${rdv.medecin.nom})`}
                 </option>
               ))}
             </select>
@@ -390,18 +468,11 @@ export default function NouvelleConsultationVideoPage() {
                 ✓ Les informations du rendez-vous ont été automatiquement remplies
               </p>
             )}
-            {!formData.rendezVousId && formData.patientId && (
-              <p className="text-xs text-blue-600 mt-1">
-                💡 Aucun RDV sélectionné - Remplissez manuellement les champs ci-dessus
-              </p>
-            )}
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Options
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Options</h2>
 
           <div className="space-y-4">
             <div className="flex items-start">
@@ -417,12 +488,12 @@ export default function NouvelleConsultationVideoPage() {
                 htmlFor="enregistrementAutorise"
                 className="ml-3 block text-sm text-gray-700"
               >
-                <span className="font-medium">
-                  Autoriser l'enregistrement local
-                </span>
+                <span className="font-medium">Autoriser l'enregistrement local</span>
                 <p className="text-xs text-gray-500 mt-1">
-                  🔴 L'admin pourra démarrer un enregistrement qui sera
-                  sauvegardé localement sur sa machine (pas sur le serveur)
+                  🔴 L'admin pourra démarrer un enregistrement
+                  {formData.plateforme === "DAILY"
+                    ? " qui sera sauvegardé localement sur sa machine"
+                    : " (fonctionnalité limitée sur ZegoCloud)"}
                 </p>
               </label>
             </div>

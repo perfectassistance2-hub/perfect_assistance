@@ -1,3 +1,5 @@
+// app/patient/page.tsx
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -5,6 +7,26 @@ import { useRouter } from 'next/navigation';
 import PatientSidebar from '@/components/patient/PatientSidebar';
 import Link from 'next/link';
 
+interface ConsultationVideo {
+  id: string;
+  titre: string;
+  plateforme: 'DAILY' | 'ZEGOCLOUD';
+  date_debut: string;
+  duree: number;
+  statut: string;
+  lien_patient: string;
+  enregistrement_autorise: boolean;
+  rendez_vous?: {
+    id: string;
+    raison: string;
+    medecin?: {
+      id: string;
+      prenom: string;
+      nom: string;
+      specialite: string;
+    };
+  };
+}
 
 interface DashboardData {
   patient: {
@@ -42,6 +64,7 @@ interface DashboardData {
     statut: string;
     raison?: string;
     urlReunion?: string;
+    consultationVideo?: ConsultationVideo[];
     medecin?: {
       prenom: string;
       nom: string;
@@ -52,6 +75,7 @@ interface DashboardData {
       ville: string;
     };
   }>;
+  prochainesVisios?: ConsultationVideo[]; // ✅ NOUVEAU
   devisActif?: {
     id: string;
     numeroDevis: string;
@@ -103,7 +127,6 @@ export default function PatientDashboard() {
 
       const result = await response.json();
       
-      // Vérifier le format de réponse
       if (result.success) {
         setData(result);
       } else {
@@ -144,7 +167,7 @@ export default function PatientDashboard() {
     );
   }
 
-  const { patient, sejourActif, prochainsRendezVous, devisActif, documentsRecents, messagesNonLus, notificationsNonLues, activitesRecentes } = data;
+  const { patient, sejourActif, prochainsRendezVous, prochainesVisios, devisActif, documentsRecents, messagesNonLus, notificationsNonLues, activitesRecentes } = data;
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('fr-FR', {
@@ -178,15 +201,23 @@ export default function PatientDashboard() {
     return formatDate(dateStr);
   };
 
+  // ✅ NOUVEAU - Vérifier si une visio peut être rejointe
+  const canJoinVisio = (dateDebut: string, duree: number) => {
+    const debut = new Date(dateDebut);
+    const now = new Date();
+    const diff = (debut.getTime() - now.getTime()) / (1000 * 60); // en minutes
+    
+    // Peut rejoindre 15 min avant et pendant la durée
+    return diff <= 15 && diff >= -duree;
+  };
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-teal-50/20 to-cyan-50/20">
-      {/* Sidebar */}
       <PatientSidebar 
         patient={patient} 
         notificationsNonLues={notificationsNonLues}
       />
 
-      {/* Main Content */}
       <main className="ml-64 flex-1 p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header Welcome */}
@@ -222,6 +253,82 @@ export default function PatientDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Colonne principale (2/3) */}
             <div className="lg:col-span-2 space-y-6">
+              {/* ✅ NOUVEAU - Prochaines Visioconférences */}
+              {prochainesVisios && prochainesVisios.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-md overflow-hidden border border-purple-100">
+                  <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-6 py-4">
+                    <h2 className="text-lg font-bold text-white flex items-center">
+                      <span className="mr-2">🎥</span>
+                      Mes Visioconférences
+                    </h2>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    {prochainesVisios.map((visio) => {
+                      const peutRejoindre = canJoinVisio(visio.date_debut, visio.duree);
+                      
+                      return (
+                        <div 
+                          key={visio.id}
+                          className={`border-2 rounded-xl p-4 transition-all ${
+                            peutRejoindre 
+                              ? 'border-green-300 bg-green-50' 
+                              : 'border-gray-200 bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <h3 className="font-bold text-gray-900">{visio.titre}</h3>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  visio.plateforme === 'DAILY'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                  {visio.plateforme === 'DAILY' ? '📹 Daily.co' : '🎥 ZegoCloud'}
+                                </span>
+                                {peutRejoindre && (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 animate-pulse">
+                                    🟢 Accessible maintenant
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="space-y-1 text-sm text-gray-600 mb-3">
+                                <p>📅 {formatDate(visio.date_debut)} à {formatTime(visio.date_debut)}</p>
+                                <p>⏱️ Durée: {visio.duree} minutes</p>
+                                {visio.rendez_vous?.medecin && (
+                                  <p>👨‍⚕️ Dr. {visio.rendez_vous.medecin.prenom} {visio.rendez_vous.medecin.nom}</p>
+                                )}
+                                {visio.enregistrement_autorise && (
+                                  <p className="text-orange-600">🔴 Enregistrement autorisé</p>
+                                )}
+                              </div>
+
+                              {visio.rendez_vous && (
+                                <Link 
+                                  href={`/patient/rendez-vous/${visio.rendez_vous.id}`}
+                                  className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                                >
+                                  Voir le rendez-vous associé →
+                                </Link>
+                              )}
+                            </div>
+
+                            {peutRejoindre && (
+                              <Link href={`/patient/rendez-vous/${visio.rendez_vous?.id}/consultation`}>
+                                <button className="ml-4 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-all shadow-md">
+                                  🎥 Rejoindre
+                                </button>
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Prochain Rendez-vous */}
               {prochainsRendezVous && prochainsRendezVous.length > 0 && (
                 <div className="bg-white rounded-2xl shadow-md overflow-hidden border border-teal-100">
@@ -264,14 +371,6 @@ export default function PatientDashboard() {
                       )}
                     </div>
                     <div className="flex space-x-3">
-                      {prochainsRendezVous[0].type === 'VISIO_PRELIMINAIRE' && prochainsRendezVous[0].urlReunion && (
-                        <Link href={prochainsRendezVous[0].urlReunion} target="_blank">
-                          <button className="px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-medium rounded-xl transition-all shadow-md hover:shadow-lg flex items-center">
-                            <span className="mr-2">📹</span>
-                            Rejoindre la visio
-                          </button>
-                        </Link>
-                      )}
                       <Link href={`/patient/rendez-vous/${prochainsRendezVous[0].id}`}>
                         <button className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-xl transition-all">
                           Voir les détails
@@ -354,7 +453,7 @@ export default function PatientDashboard() {
               </div>
             </div>
 
-            {/* Colonne latérale (1/3) */}
+            {/* Colonne latérale (1/3) - reste identique */}
             <div className="space-y-6">
               {/* Mon Devis */}
               {devisActif && (

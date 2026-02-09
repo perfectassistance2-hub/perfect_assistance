@@ -8,6 +8,12 @@ import {
   calculateExpiration,
   DAILY_CONFIG 
 } from "@/lib/daily-config";
+import {
+  generateZegoRoomId,
+  generateZegoAccessLink,
+  validateZegoConfig,
+  ZEGOCLOUD_CONFIG
+} from "@/lib/zegocloud-config";
 
 // =====================================================
 // GET - Liste des consultations vidéo
@@ -89,6 +95,7 @@ export async function POST(request: NextRequest) {
       medecinId,
       rendezVousId,
       enregistrementAutorise,
+      plateforme = "DAILY", // ✅ NOUVEAU - par défaut Daily
       creePar,
     } = body;
 
@@ -97,6 +104,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Champs obligatoires manquants" },
         { status: 400 }
+      );
+    }
+
+    // Valider la plateforme
+    if (!["DAILY", "ZEGOCLOUD"].includes(plateforme)) {
+      return NextResponse.json(
+        { error: "Plateforme invalide. Doit être DAILY ou ZEGOCLOUD" },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier la configuration selon la plateforme
+    if (plateforme === "ZEGOCLOUD" && !validateZegoConfig()) {
+      return NextResponse.json(
+        { error: "Configuration ZegoCloud manquante. Veuillez configurer NEXT_PUBLIC_ZEGO_APP_ID et NEXT_PUBLIC_ZEGO_SERVER_SECRET" },
+        { status: 500 }
       );
     }
 
@@ -112,10 +135,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier la durée max
-    if (duree > DAILY_CONFIG.MAX_DURATION_MINUTES) {
+    // Vérifier la durée max selon la plateforme
+    const maxDuration = plateforme === "DAILY" 
+      ? DAILY_CONFIG.MAX_DURATION_MINUTES 
+      : ZEGOCLOUD_CONFIG.MAX_DURATION_MINUTES;
+
+    if (duree > maxDuration) {
       return NextResponse.json(
-        { error: `La durée maximale est de ${DAILY_CONFIG.MAX_DURATION_MINUTES} minutes` },
+        { error: `La durée maximale pour ${plateforme} est de ${maxDuration} minutes` },
         { status: 400 }
       );
     }
@@ -152,55 +179,89 @@ export async function POST(request: NextRequest) {
       medecin = medecinData;
     }
 
-    // === CRÉER LA ROOM DAILY.CO ===
-    console.log("Création de la room Daily.co...");
-    
-    const roomName = generateRoomName();
-    const expiration = calculateExpiration(duree);
+    // ✅ NOUVEAU - Créer la room selon la plateforme choisie
+    let consultationData: any = {
+      titre,
+      description: description || null,
+      date_debut: dateDebutObj.toISOString(),
+      date_fin: dateFinObj.toISOString(),
+      duree,
+      patient_id: patientId,
+      medecin_id: medecinId || null,
+      rendez_vous_id: rendezVousId || null,
+      enregistrement_autorise: enregistrementAutorise || false,
+      statut: "PLANIFIE",
+      plateforme, // ✅ Nouveau champ
+      cree_par: creePar,
+    };
 
-    const dailyRoom = await createDailyRoom({
-      name: roomName,
-      privacy: 'public',
-      properties: {
-        exp: expiration,
-        enable_screenshare: true,
-        enable_chat: true,
-        enable_recording: enregistrementAutorise ? 'local' : undefined,
-        start_video_off: false,
-        start_audio_off: false,
-        max_participants: DAILY_CONFIG.MAX_PARTICIPANTS,
-      },
-    });
+    if (plateforme === "DAILY") {
+      // === CRÉER LA ROOM DAILY.CO ===
+      console.log("Création de la room Daily.co...");
+      
+      const roomName = generateRoomName();
+      const expiration = calculateExpiration(duree);
 
-    console.log("Room Daily.co créée:", dailyRoom.url);
+      const dailyRoom = await createDailyRoom({
+        name: roomName,
+        privacy: 'public',
+        properties: {
+          exp: expiration,
+          enable_screenshare: true,
+          enable_chat: true,
+          enable_recording: enregistrementAutorise ? 'local' : undefined,
+          start_video_off: false,
+          start_audio_off: false,
+          max_participants: DAILY_CONFIG.MAX_PARTICIPANTS,
+        },
+      });
 
-    // Générer les liens d'accès
-    const dailyDomain = process.env.NEXT_PUBLIC_DAILY_DOMAIN || 'daily.co';
-    const lienPatient = `${dailyRoom.url}?userName=${encodeURIComponent(patient.prenom + ' ' + patient.nom)}&role=patient`;
-    const lienMedecin = medecin 
-      ? `${dailyRoom.url}?userName=${encodeURIComponent('Dr. ' + medecin.prenom + ' ' + medecin.nom)}&role=medecin`
-      : dailyRoom.url;
+      console.log("Room Daily.co créée:", dailyRoom.url);
+
+      // Générer les liens d'accès Daily
+      const lienPatient = `${dailyRoom.url}?userName=${encodeURIComponent(patient.prenom + ' ' + patient.nom)}&role=patient`;
+      const lienMedecin = medecin 
+        ? `${dailyRoom.url}?userName=${encodeURIComponent('Dr. ' + medecin.prenom + ' ' + medecin.nom)}&role=medecin`
+        : dailyRoom.url;
+
+      consultationData.daily_room_name = dailyRoom.name;
+      consultationData.daily_room_url = dailyRoom.url;
+      consultationData.lien_patient = lienPatient;
+      consultationData.lien_medecin = lienMedecin;
+
+    } else if (plateforme === "ZEGOCLOUD") {
+      // === CRÉER LA ROOM ZEGOCLOUD ===
+      console.log("Création de la room ZegoCloud...");
+      
+      const zegoRoomId = generateZegoRoomId();
+      
+      // Générer les liens d'accès ZegoCloud
+      const lienPatient = generateZegoAccessLink(
+        zegoRoomId,
+        `${patient.prenom} ${patient.nom}`,
+        'patient'
+      );
+      
+      const lienMedecin = medecin
+        ? generateZegoAccessLink(
+            zegoRoomId,
+            `Dr. ${medecin.prenom} ${medecin.nom}`,
+            'medecin'
+          )
+        : generateZegoAccessLink(zegoRoomId, 'Médecin', 'medecin');
+
+      console.log("Room ZegoCloud créée:", zegoRoomId);
+
+      consultationData.zego_room_id = zegoRoomId;
+      consultationData.zego_app_id = ZEGOCLOUD_CONFIG.APP_ID.toString();
+      consultationData.lien_patient = lienPatient;
+      consultationData.lien_medecin = lienMedecin;
+    }
 
     // Insérer dans la base de données
     const { data: consultation, error: insertError } = await supabaseAdmin
       .from("consultations_video")
-      .insert({
-        titre,
-        description: description || null,
-        date_debut: dateDebutObj.toISOString(),
-        date_fin: dateFinObj.toISOString(),
-        duree,
-        patient_id: patientId,
-        medecin_id: medecinId || null,
-        rendez_vous_id: rendezVousId || null,
-        daily_room_name: dailyRoom.name,
-        daily_room_url: dailyRoom.url,
-        lien_patient: lienPatient,
-        lien_medecin: lienMedecin,
-        enregistrement_autorise: enregistrementAutorise || false,
-        statut: "PLANIFIE",
-        cree_par: creePar,
-      })
+      .insert(consultationData)
       .select(`
         *,
         patient:patients!consultations_video_patient_id_fkey(id, prenom, nom, email),
@@ -210,16 +271,19 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error("Erreur insertion consultation:", insertError);
-      // Supprimer la room Daily.co en cas d'erreur
-      try {
-        await fetch(`https://api.daily.co/v1/rooms/${roomName}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${process.env.DAILY_API_KEY}`,
-          },
-        });
-      } catch (deleteError) {
-        console.error("Erreur suppression room Daily.co:", deleteError);
+      
+      // Supprimer la room Daily.co en cas d'erreur (si Daily)
+      if (plateforme === "DAILY" && consultationData.daily_room_name) {
+        try {
+          await fetch(`https://api.daily.co/v1/rooms/${consultationData.daily_room_name}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${process.env.DAILY_API_KEY}`,
+            },
+          });
+        } catch (deleteError) {
+          console.error("Erreur suppression room Daily.co:", deleteError);
+        }
       }
       
       return NextResponse.json(
@@ -228,11 +292,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Consultation créée avec succès:", consultation.id);
+    console.log(`Consultation ${plateforme} créée avec succès:`, consultation.id);
 
     return NextResponse.json(
       {
-        message: "Consultation vidéo créée avec succès",
+        message: `Consultation vidéo ${plateforme} créée avec succès`,
         consultation,
       },
       { status: 201 }

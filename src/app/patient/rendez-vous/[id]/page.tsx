@@ -1,8 +1,11 @@
+// app/patient/rendez-vous/[id]/page.tsx
+
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, use } from 'react';
+import { useRouter } from 'next/navigation';
 import PatientSidebar from '@/components/patient/PatientSidebar';
+import Link from 'next/link';
 
 interface Medecin {
   id: string;
@@ -26,12 +29,17 @@ interface Clinique {
 
 interface ConsultationVideo {
   id: string;
-  daily_room_name: string;
-  daily_room_url: string;
+  titre: string;
+  plateforme: 'DAILY' | 'ZEGOCLOUD';
+  daily_room_name?: string;
+  daily_room_url?: string;
+  zego_room_id?: string;
   lien_patient: string;
   lien_medecin: string;
-  mot_de_passe?: string;
   statut: string;
+  date_debut: string;
+  duree: number;
+  enregistrement_autorise: boolean;
 }
 
 interface RendezVous {
@@ -58,10 +66,14 @@ interface Document {
   dateCreation: string;
 }
 
-export default function DetailRendezVous() {
+export default function DetailRendezVous({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
-  const [rdvId, setRdvId] = useState<string | null>(null);
-  const params = useParams();
+  const resolvedParams = use(params);
+  const rdvId = resolvedParams.id;
 
   const [patient, setPatient] = useState<any>(null);
   const [rdv, setRdv] = useState<RendezVous | null>(null);
@@ -71,14 +83,6 @@ export default function DetailRendezVous() {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [newNotes, setNewNotes] = useState('');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    const resolveParams = async () => {
-      const resolved = await params;
-      setRdvId(resolved.id as string);
-    };
-    resolveParams();
-  }, [params]);
 
   useEffect(() => {
     if (rdvId) {
@@ -230,20 +234,35 @@ export default function DetailRendezVous() {
     );
   };
 
-  const canJoinVisio = () => {
-    if (!rdv || rdv.statut === 'ANNULE') return false;
-    
-    const consultation = rdv.consultationVideo && rdv.consultationVideo.length > 0
-      ? rdv.consultationVideo[0]
-      : null;
-    
+  // ✅ NOUVEAU - Vérifier si une visio peut être rejointe
+  const canJoinVisio = (consultation: ConsultationVideo) => {
+    if (rdv?.statut === 'ANNULE') return false;
     if (!consultation || !consultation.lien_patient) return false;
     
-    const rdvDate = new Date(rdv.datePrevue);
+    const visioDate = new Date(consultation.date_debut);
     const now = new Date();
-    const diff = (rdvDate.getTime() - now.getTime()) / 1000 / 60;
+    const diff = (visioDate.getTime() - now.getTime()) / 1000 / 60; // en minutes
     
-    return diff <= 15 && diff >= -(rdv.duree);
+    // Peut rejoindre 15 min avant et pendant la durée
+    return diff <= 15 && diff >= -consultation.duree;
+  };
+
+  // ✅ NOUVEAU - Badge plateforme
+  const getPlatformBadge = (plateforme: string) => {
+    if (plateforme === 'DAILY') {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+          📹 Daily.co
+        </span>
+      );
+    } else if (plateforme === 'ZEGOCLOUD') {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+          🎥 ZegoCloud
+        </span>
+      );
+    }
+    return null;
   };
 
   if (loading) {
@@ -287,9 +306,7 @@ export default function DetailRendezVous() {
     );
   }
 
-  const consultation = rdv.consultationVideo && rdv.consultationVideo.length > 0
-    ? rdv.consultationVideo[0]
-    : null;
+  const consultations = rdv.consultationVideo || [];
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-teal-50/20 to-cyan-50/20">
@@ -328,6 +345,81 @@ export default function DetailRendezVous() {
             </div>
 
             <div className="p-8 space-y-6">
+              {/* ✅ NOUVEAU - Section Visioconférences (TOUTES) */}
+              {consultations.length > 0 && (
+                <div className="border-2 border-purple-200 rounded-xl p-6 bg-gradient-to-br from-purple-50 to-indigo-50">
+                  <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span className="text-2xl mr-2">🎥</span>
+                    Consultations en ligne ({consultations.length})
+                  </h2>
+                  
+                  <div className="space-y-4">
+                    {consultations.map((consultation) => {
+                      const peutRejoindre = canJoinVisio(consultation);
+                      
+                      return (
+                        <div 
+                          key={consultation.id}
+                          className={`border-2 rounded-lg p-4 transition-all ${
+                            peutRejoindre 
+                              ? 'border-green-300 bg-green-50' 
+                              : 'border-gray-200 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <h3 className="font-bold text-gray-900">{consultation.titre}</h3>
+                                {getPlatformBadge(consultation.plateforme)}
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  consultation.statut === 'PLANIFIE'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : consultation.statut === 'EN_COURS'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {consultation.statut}
+                                </span>
+                                {peutRejoindre && (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 animate-pulse">
+                                    🟢 Accessible
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="space-y-1 text-sm text-gray-600 mb-3">
+                                <p>📅 {formatDate(consultation.date_debut)} à {formatTime(consultation.date_debut)}</p>
+                                <p>⏱️ Durée: {consultation.duree} minutes</p>
+                                {consultation.enregistrement_autorise && (
+                                  <p className="text-orange-600">
+                                    🔴 Enregistrement autorisé
+                                    {consultation.plateforme === 'ZEGOCLOUD' && ' (non disponible sur ZegoCloud)'}
+                                  </p>
+                                )}
+                              </div>
+
+                              {!peutRejoindre && consultation.statut === 'PLANIFIE' && (
+                                <p className="text-xs text-gray-500 italic">
+                                  La consultation sera accessible 15 minutes avant le début
+                                </p>
+                              )}
+                            </div>
+
+                            {peutRejoindre && (
+                              <Link href={`/patient/rendez-vous/${rdvId}/consultation`}>
+                                <button className="ml-4 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-all shadow-md">
+                                  🎥 Rejoindre
+                                </button>
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {rdv.medecin && (
                 <div className="border-2 border-gray-200 rounded-xl p-6">
                   <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
@@ -337,7 +429,8 @@ export default function DetailRendezVous() {
                   
                   <div className="flex items-start">
                     <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">
-                      {rdv.medecin.prenom[0]}{rdv.medecin.nom[0]}
+                      {rdv.medecin.prenom[0]}
+                      {rdv.medecin.nom[0]}
                     </div>
                     
                     <div className="flex-1">
@@ -397,64 +490,6 @@ export default function DetailRendezVous() {
                       )}
                     </div>
                   </div>
-                </div>
-              )}
-
-              {consultation && (
-                <div className={`border-2 rounded-xl p-6 ${
-                  canJoinVisio() 
-                    ? 'border-green-300 bg-green-50' 
-                    : 'border-gray-200 bg-gray-50'
-                }`}>
-                  <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span className="text-2xl mr-2">🎥</span>
-                    Consultation en ligne
-                  </h2>
-                  
-                  {canJoinVisio() ? (
-                    <div>
-                      <p className="text-green-700 font-medium mb-4">
-                        ✅ La réunion est maintenant accessible !
-                      </p>
-                      <button
-                        onClick={() => router.push(`/patient/rendez-vous/${rdvId}/consultation`)}
-                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:shadow-lg transition-all font-medium"
-                      >
-                        🎥 Rejoindre la consultation
-                      </button>
-                      <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
-                        <p className="text-sm text-gray-600 mb-2">Lien de la salle :</p>
-                        <div className="flex items-center gap-2">
-                          <code className="flex-1 text-xs bg-gray-100 px-3 py-2 rounded font-mono text-gray-700 overflow-auto">
-                            {consultation.lien_patient}
-                          </code>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(consultation.lien_patient);
-                              alert('Lien copié !');
-                            }}
-                            className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
-                          >
-                            📋
-                          </button>
-                        </div>
-                      </div>
-                      {consultation.mot_de_passe && (
-                        <p className="mt-3 text-sm text-gray-600">
-                          Mot de passe: <span className="font-mono font-bold">{consultation.mot_de_passe}</span>
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-gray-600 mb-2">
-                        Le lien de réunion sera accessible 15 minutes avant le rendez-vous.
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        📅 Rendez-vous prévu le {formatDate(rdv.datePrevue)} à {formatTime(rdv.datePrevue)}
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
 

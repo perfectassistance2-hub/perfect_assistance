@@ -1,3 +1,5 @@
+// app/api/medecin/dashboard/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAuthUser } from "@/lib/auth-utils";
@@ -39,12 +41,48 @@ export async function GET(request: NextRequest) {
       .eq("medecinId", medecinId)
       .in("statut", ["PLANIFIE", "EN_COURS"]);
 
-    // Prochains rendez-vous
+    // ✅ NOUVEAU - Prochaines consultations vidéo
+    const { data: prochainesVisios } = await supabaseAdmin
+      .from("consultations_video")
+      .select(`
+        id,
+        titre,
+        plateforme,
+        date_debut,
+        duree,
+        statut,
+        lien_medecin,
+        enregistrement_autorise,
+        rendez_vous:rendez_vous!rendez_vous_id(
+          id,
+          raison,
+          patient:patients!patientId(
+            id,
+            prenom,
+            nom
+          )
+        )
+      `)
+      .eq('medecin_id', medecinId)
+      .in('statut', ['PLANIFIE', 'EN_COURS'])
+      .gte('date_debut', new Date().toISOString())
+      .order('date_debut', { ascending: true })
+      .limit(5);
+
+    // Prochains rendez-vous AVEC consultations vidéo
     const { data: prochainsRendezVous } = await supabaseAdmin
       .from("rendez_vous")
       .select(`
         *,
-        patient:patients(id, prenom, nom, telephone, email)
+        patient:patients(id, prenom, nom, telephone, email),
+        consultationVideo:consultations_video!rendez_vous_id(
+          id,
+          titre,
+          plateforme,
+          date_debut,
+          statut,
+          lien_medecin
+        )
       `)
       .eq("medecinId", medecinId)
       .gte("datePrevue", new Date().toISOString())
@@ -101,6 +139,7 @@ export async function GET(request: NextRequest) {
         patientsCount: patientsCount || 0,
         rendezVousAujourdhui: rendezVousAujourdhui || 0,
         prochainsRendezVous: prochainsRendezVous || [],
+        prochainesVisios: prochainesVisios || [], // ✅ NOUVEAU
         sejoursActifs: sejoursActifs || [],
         messagesNonLus: messagesNonLus || 0
       }

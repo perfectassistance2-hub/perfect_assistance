@@ -1,3 +1,5 @@
+// app/api/patient/dashboard/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth-utils';
 import { supabaseAdmin } from '@/lib/supabase';
@@ -6,7 +8,6 @@ export async function GET(request: NextRequest) {
   try {
     console.log('📊 Dashboard API - Début');
 
-    // Vérifier l'authentification
     const user = await getAuthUser(request);
     
     console.log('User:', user);
@@ -36,8 +37,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculer le % de profil complet (simplifié)
-    let profilComplet = 50; // Base
+    let profilComplet = 50;
     if (patient.telephone) profilComplet += 10;
 
     // 2. Récupérer le séjour actif
@@ -50,7 +50,6 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    // Charger les relations du séjour séparément
     let sejourAvecRelations = null;
     if (sejourActif) {
       const { data: clinique } = await supabaseAdmin
@@ -72,10 +71,57 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // 3. Récupérer les prochains rendez-vous
+    // 3. ✅ NOUVEAU - Récupérer les prochaines consultations vidéo
+    const { data: prochainesVisios } = await supabaseAdmin
+      .from('consultations_video')
+      .select(`
+        id,
+        titre,
+        plateforme,
+        date_debut,
+        duree,
+        statut,
+        lien_patient,
+        enregistrement_autorise,
+        rendez_vous:rendez_vous!rendez_vous_id(
+          id,
+          raison,
+          medecin:medecins!medecinId(
+            id,
+            prenom,
+            nom,
+            specialite
+          )
+        )
+      `)
+      .eq('patient_id', patientId)
+      .in('statut', ['PLANIFIE', 'EN_COURS'])
+      .gte('date_debut', new Date().toISOString())
+      .order('date_debut', { ascending: true })
+      .limit(5);
+
+    // 4. Récupérer les prochains rendez-vous AVEC consultations vidéo
     const { data: prochainsRendezVous } = await supabaseAdmin
       .from('rendez_vous')
-      .select('id, type, datePrevue, duree, statut, raison, urlReunion, medecinId, cliniqueId')
+      .select(`
+        id, 
+        type, 
+        datePrevue, 
+        duree, 
+        statut, 
+        raison, 
+        urlReunion, 
+        medecinId, 
+        cliniqueId,
+        consultationVideo:consultations_video!rendez_vous_id(
+          id,
+          titre,
+          plateforme,
+          date_debut,
+          statut,
+          lien_patient
+        )
+      `)
       .eq('patientId', patientId)
       .in('statut', ['PLANIFIE', 'CONFIRME'])
       .gte('datePrevue', new Date().toISOString())
@@ -101,7 +147,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // 4. Récupérer le devis actif
+    // 5. Récupérer le devis actif
     const { data: devisActif } = await supabaseAdmin
       .from('devis')
       .select('id, numeroDevis, total, montantPaye, statutPaiement, articles')
@@ -111,7 +157,7 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    // 5. Récupérer les documents récents
+    // 6. Récupérer les documents récents
     const { data: documentsRecents } = await supabaseAdmin
       .from('documents')
       .select('id, titre, type, dateTeleversement, ajoutePar')
@@ -119,7 +165,7 @@ export async function GET(request: NextRequest) {
       .order('dateTeleversement', { ascending: false })
       .limit(5);
 
-    // 6. Compter les messages non lus
+    // 7. Compter les messages non lus
     const { count: messagesNonLus } = await supabaseAdmin
       .from('messages')
       .select('*', { count: 'exact', head: true })
@@ -128,8 +174,22 @@ export async function GET(request: NextRequest) {
 
     const notificationsNonLues = 0;
 
-    // 7. Créer la timeline d'activités récentes
+    // 8. Créer la timeline d'activités récentes
     const activitesRecentes = [];
+
+    // ✅ Ajouter les visios à venir
+    if (prochainesVisios && prochainesVisios.length > 0) {
+      prochainesVisios.slice(0, 2).forEach(visio => {
+        activitesRecentes.push({
+          id: `visio-${visio.id}`,
+          type: 'visio',
+          titre: 'Consultation vidéo programmée',
+          description: `${visio.titre} - ${visio.plateforme === 'DAILY' ? 'Daily.co' : 'ZegoCloud'}`,
+          date: visio.date_debut,
+          icon: '🎥'
+        });
+      });
+    }
 
     // Ajouter les rendez-vous récents
     if (rdvAvecRelations && rdvAvecRelations.length > 0) {
@@ -199,6 +259,7 @@ export async function GET(request: NextRequest) {
       },
       sejourActif: sejourAvecRelations || null,
       prochainsRendezVous: rdvAvecRelations || [],
+      prochainesVisios: prochainesVisios || [], // ✅ NOUVEAU
       devisActif: devisActif || null,
       documentsRecents: documentsRecents || [],
       messagesNonLus: messagesNonLus || 0,

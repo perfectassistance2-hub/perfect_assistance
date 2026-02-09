@@ -1,10 +1,31 @@
-// Fichier: app/medecin/dashboard/page.tsx
+// app/medecin/dashboard/page.tsx
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/medecin/Sidebar';
+
+interface ConsultationVideo {
+  id: string;
+  titre: string;
+  plateforme: 'DAILY' | 'ZEGOCLOUD';
+  date_debut: string;
+  duree: number;
+  statut: string;
+  lien_medecin: string;
+  enregistrement_autorise: boolean;
+  rendez_vous?: {
+    id: string;
+    raison: string;
+    patient?: {
+      id: string;
+      prenom: string;
+      nom: string;
+    };
+  };
+}
 
 interface DashboardData {
   medecin: {
@@ -20,6 +41,7 @@ interface DashboardData {
     patientsCount: number;
     rendezVousAujourdhui: number;
     prochainsRendezVous: any[];
+    prochainesVisios?: ConsultationVideo[]; // ✅ NOUVEAU
     sejoursActifs: any[];
     messagesNonLus: number;
   };
@@ -64,8 +86,17 @@ export default function MedecinDashboard() {
     const diff = rdvDate.getTime() - now.getTime();
     const minutesDiff = diff / (1000 * 60);
     
-    // Peut rejoindre 5 minutes avant jusqu'à la fin
     return minutesDiff <= 5 && minutesDiff >= -(rdv.duree || 30);
+  };
+
+  // ✅ NOUVEAU - Vérifier si visio accessible
+  const canJoinVisio = (dateDebut: string, duree: number) => {
+    const debut = new Date(dateDebut);
+    const now = new Date();
+    const diff = (debut.getTime() - now.getTime()) / (1000 * 60); // en minutes
+    
+    // Peut rejoindre 15 min avant et pendant la durée
+    return diff <= 15 && diff >= -duree;
   };
 
   if (loading) {
@@ -83,10 +114,8 @@ export default function MedecinDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
       <Sidebar medecin={data.medecin} messagesNonLus={data.stats.messagesNonLus} />
 
-      {/* Main Content */}
       <main className="flex-1 ml-64 p-8">
         {/* Header */}
         <div className="mb-8">
@@ -101,7 +130,6 @@ export default function MedecinDashboard() {
 
         {/* Stats Cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
-          {/* Patients */}
           <Link href="/medecin/patients">
             <div className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100">
               <div className="flex items-center justify-between mb-4">
@@ -116,7 +144,6 @@ export default function MedecinDashboard() {
             </div>
           </Link>
 
-          {/* Rendez-vous aujourd'hui */}
           <Link href="/medecin/rendez-vous">
             <div className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100">
               <div className="flex items-center justify-between mb-4">
@@ -131,7 +158,6 @@ export default function MedecinDashboard() {
             </div>
           </Link>
 
-          {/* Messages */}
           <Link href="/medecin/messages">
             <div className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100">
               <div className="flex items-center justify-between mb-4">
@@ -151,6 +177,94 @@ export default function MedecinDashboard() {
             </div>
           </Link>
         </div>
+
+        {/* ✅ NOUVEAU - Prochaines Visioconférences */}
+        {data.stats.prochainesVisios && data.stats.prochainesVisios.length > 0 && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                <span className="text-2xl mr-2">🎥</span>
+                Mes Visioconférences
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              {data.stats.prochainesVisios.map((visio) => {
+                const peutRejoindre = canJoinVisio(visio.date_debut, visio.duree);
+                
+                return (
+                  <div 
+                    key={visio.id}
+                    className={`border-2 rounded-xl p-4 transition-all ${
+                      peutRejoindre 
+                        ? 'border-green-300 bg-green-50' 
+                        : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h3 className="font-bold text-gray-900">{visio.titre}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            visio.plateforme === 'DAILY'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {visio.plateforme === 'DAILY' ? '📹 Daily.co' : '🎥 ZegoCloud'}
+                          </span>
+                          {peutRejoindre && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 animate-pulse">
+                              🟢 Accessible maintenant
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-1 text-sm text-gray-600 mb-3">
+                          <p>📅 {new Date(visio.date_debut).toLocaleDateString('fr-FR', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })} à {new Date(visio.date_debut).toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}</p>
+                          <p>⏱️ Durée: {visio.duree} minutes</p>
+                          {visio.rendez_vous?.patient && (
+                            <p>👤 Patient: {visio.rendez_vous.patient.prenom} {visio.rendez_vous.patient.nom}</p>
+                          )}
+                          {visio.enregistrement_autorise && (
+                            <p className="text-orange-600">
+                              🔴 Enregistrement autorisé
+                              {visio.plateforme === 'ZEGOCLOUD' && ' (non disponible sur ZegoCloud)'}
+                            </p>
+                          )}
+                        </div>
+
+                        {visio.rendez_vous && (
+                          <Link 
+                            href={`/medecin/rendez-vous/${visio.rendez_vous.id}`}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            Voir le rendez-vous associé →
+                          </Link>
+                        )}
+                      </div>
+
+                      {peutRejoindre && visio.rendez_vous && (
+                        <Link href={`/medecin/rendez-vous/${visio.rendez_vous.id}/consultation`}>
+                          <button className="ml-4 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-all shadow-md">
+                            🎥 Rejoindre
+                          </button>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Actions rapides */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 mb-8 text-white">

@@ -1,97 +1,241 @@
-// app/admin/consultations-video/[id]/visio/page.tsx
+// app/medecin/rendez-vous/[id]/visio/page.tsx
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
-import DailyIframe from "@daily-co/daily-js";
+import React, { useState, useEffect, useRef, use } from 'react';
+import { useRouter } from 'next/navigation';
+import DailyIframe from '@daily-co/daily-js';
+import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 
-type Consultation = {
-  id: string;
-  titre: string;
-  description: string | null;
-  date_debut: string;
-  date_fin: string;
-  duree: number;
-  statut: string;
-  daily_room_url: string;
-  daily_room_name: string;
-  lien_patient: string;
-  lien_medecin: string;
-  enregistrement_autorise: boolean;
-  enregistrement_demarre: boolean;
-  patient: {
-    id: string;
-    prenom: string;
-    nom: string;
-    email: string;
-    telephone: string | null;
-  };
-  medecin: {
-    id: string;
-    prenom: string;
-    nom: string;
-    specialite: string;
-    email: string | null;
-  } | null;
-  rendez_vous: {
-    id: string;
-    datePrevue: string;
-    raison: string;
-    type: string;
-  } | null;
-  createur: {
-    id: string;
-    prenom: string;
-    nom: string;
-    email: string;
-  };
-};
-
-export default function VisioControlPage() {
+export default function ConsultationPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
-  const params = useParams();
-  const id = params.id as string;
+  const resolvedParams = use(params);
+  const rdvId = resolvedParams.id;
 
-  const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [error, setError] = useState('');
+  const [rdv, setRdv] = useState<any>(null);
+  const [callFrame, setCallFrame] = useState<any>(null);
+  const [isInCall, setIsInCall] = useState(false);
+  const [checkingPermissions, setCheckingPermissions] = useState(false);
 
-  // États de la visioconférence
-  const [callObject, setCallObject] = useState<any>(null);
-  const [participants, setParticipants] = useState<any[]>([]);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-
-  const callFrameRef = useRef<HTMLDivElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const zegoInstanceRef = useRef<any>(null);
 
   useEffect(() => {
-    if (id) {
-      loadConsultation();
-    }
-    
+    loadRendezVous();
+
     return () => {
-      if (callObject) {
-        callObject.destroy();
+      if (callFrame) {
+        callFrame.destroy();
+      }
+      if (zegoInstanceRef.current) {
+        zegoInstanceRef.current.destroy();
       }
     };
-  }, [id]);
+  }, []);
 
-  const loadConsultation = async () => {
+  const loadRendezVous = async () => {
     try {
-      setLoading(true);
-      const response = await fetch(`/api/admin/consultations-video/${id}`);
+      const response = await fetch(`/api/medecin/rendez-vous/${rdvId}`);
       
       if (!response.ok) {
-        throw new Error("Consultation non trouvée");
+        throw new Error('Rendez-vous introuvable');
       }
 
       const data = await response.json();
-      setConsultation(data);
+      
+      if (!data.success) {
+        throw new Error('Erreur lors du chargement');
+      }
+
+      // Vérifier qu'il y a une consultation vidéo
+      if (!data.rendezVous.consultationVideo || data.rendezVous.consultationVideo.length === 0) {
+        throw new Error('Ce rendez-vous n\'a pas de consultation vidéo associée');
+      }
+
+      setRdv(data.rendezVous);
+      setLoading(false);
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  // ✅ Vérifier les permissions média
+  const checkMediaPermissions = async (): Promise<boolean> => {
+    setCheckingPermissions(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+
+      stream.getTracks().forEach((track) => track.stop());
+      setCheckingPermissions(false);
+      return true;
+    } catch (err: any) {
+      setCheckingPermissions(false);
+      
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        setError(
+          "Accès refusé : Veuillez autoriser l'accès à votre caméra et microphone."
+        );
+      } else if (err.name === "NotFoundError") {
+        setError(
+          "Aucune caméra ou microphone détecté."
+        );
+      } else {
+        setError(`Erreur d'accès aux médias : ${err.message}`);
+      }
+      
+      console.error("Erreur permissions média:", err);
+      return false;
+    }
+  };
+
+  // ✅ Rejoindre avec Daily.co
+  const joinCallDaily = async (consultation: any) => {
+    try {
+      if (!consultation.lien_medecin) {
+        throw new Error('Lien de consultation non disponible');
+      }
+
+      const frame = DailyIframe.createFrame(videoContainerRef.current!, {
+        showLeaveButton: true,
+        showFullscreenButton: true,
+        iframeStyle: {
+          width: '100%',
+          height: '100%',
+          border: 'none',
+          borderRadius: '16px'
+        }
+      });
+
+      await frame.join({
+        url: consultation.lien_medecin,
+        userName: `Dr. ${rdv.medecin?.prenom || ''} ${rdv.medecin?.nom || ''}`
+      });
+
+      setCallFrame(frame);
+      setIsInCall(true);
+
+      frame.on('left-meeting', () => {
+        setIsInCall(false);
+        frame.destroy();
+        router.push('/medecin/rendez-vous');
+      });
+
+      frame.on('error', (error: any) => {
+        console.error('Erreur Daily.co:', error);
+        setError('Erreur lors de la visioconférence');
+      });
+
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  // ✅ Rejoindre avec ZegoCloud
+  const joinCallZego = async (consultation: any) => {
+    try {
+      if (!consultation.zego_room_id) {
+        throw new Error('Room ID ZegoCloud non disponible');
+      }
+
+      const appID = parseInt(process.env.NEXT_PUBLIC_ZEGO_APP_ID || "0");
+      const serverSecret = process.env.NEXT_PUBLIC_ZEGO_SERVER_SECRET || "";
+      
+      if (!appID || !serverSecret) {
+        throw new Error('Configuration ZegoCloud manquante');
+      }
+
+      const userID = rdv.medecin?.id || `medecin_${Date.now()}`;
+      const userName = `Dr. ${rdv.medecin?.prenom || ''} ${rdv.medecin?.nom || ''}`;
+
+      const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+        appID,
+        serverSecret,
+        consultation.zego_room_id,
+        userID,
+        userName
+      );
+
+      const zp = ZegoUIKitPrebuilt.create(kitToken);
+      zegoInstanceRef.current = zp;
+
+      await zp.joinRoom({
+        container: videoContainerRef.current,
+        scenario: {
+          mode: ZegoUIKitPrebuilt.VideoConference,
+        },
+        showPreJoinView: false,
+        turnOnCameraWhenJoining: true,
+        turnOnMicrophoneWhenJoining: true,
+        showLayoutButton: true,
+        showScreenSharingButton: true, // ✅ Partage d'écran pour le médecin
+        showTextChat: true,
+        showUserName: true,
+        maxUsers: 5,
+        
+        onJoinRoom: () => {
+          console.log('✅ Connecté à ZegoCloud');
+          setIsInCall(true);
+        },
+        
+        onLeaveRoom: () => {
+          console.log('👋 Déconnecté de ZegoCloud');
+          setIsInCall(false);
+          zegoInstanceRef.current = null;
+          router.push('/medecin/rendez-vous');
+        },
+      });
+
+    } catch (err: any) {
+      console.error('❌ Erreur ZegoCloud:', err);
+      if (err.code === 1003002) {
+        setError('Erreur de connexion au serveur ZegoCloud');
+      } else if (err.code === 1003003) {
+        setError('Token invalide. Veuillez vérifier la configuration');
+      } else {
+        setError(`Erreur lors de la connexion : ${err.message || 'Erreur inconnue'}`);
+      }
+    }
+  };
+
+  // ✅ Fonction principale de connexion
+  const joinCall = async () => {
+    try {
+      setLoading(true);
+
+      // Vérifier les permissions
+      const hasPermissions = await checkMediaPermissions();
+      if (!hasPermissions) {
+        setLoading(false);
+        return;
+      }
+
+      const consultation = Array.isArray(rdv.consultationVideo) 
+        ? rdv.consultationVideo[0] 
+        : rdv.consultationVideo;
+
+      if (!consultation) {
+        throw new Error('Consultation non disponible');
+      }
+
+      // ✅ Router vers la bonne plateforme
+      if (consultation.plateforme === 'DAILY') {
+        await joinCallDaily(consultation);
+      } else if (consultation.plateforme === 'ZEGOCLOUD') {
+        await joinCallZego(consultation);
+      } else {
+        throw new Error('Plateforme de visioconférence non supportée');
+      }
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -99,472 +243,204 @@ export default function VisioControlPage() {
     }
   };
 
-  const updateStatut = async (newStatut: string) => {
-    try {
-      const response = await fetch(`/api/admin/consultations-video/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ statut: newStatut }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Erreur lors de la mise à jour");
-      }
-
-      await loadConsultation();
-      setSuccess(`Statut mis à jour : ${newStatut}`);
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const joinCall = async () => {
-    if (!consultation) return;
-
-    try {
-      const userStr = localStorage.getItem("admin_user");
-      if (!userStr) {
-        throw new Error("Session expirée");
-      }
-      const user = JSON.parse(userStr);
-
-      const userName = `Admin - ${user.prenom} ${user.nom}`;
-      const callFrame = DailyIframe.createFrame(callFrameRef.current!, {
-        showLeaveButton: true,
-        iframeStyle: {
-          position: 'relative',
-          width: '100%',
-          height: '600px',
-          border: 'none',
-          borderRadius: '8px',
-        },
-      });
-
-      await callFrame.join({
-        url: consultation.daily_room_url,
-        userName,
-      });
-
-      setCallObject(callFrame);
-
-      // Événements
-      callFrame.on("participant-joined", handleParticipantJoined);
-      callFrame.on("participant-left", handleParticipantLeft);
-      callFrame.on("participant-updated", handleParticipantUpdated);
-      callFrame.on("recording-started", () => setIsRecording(true));
-      callFrame.on("recording-stopped", () => setIsRecording(false));
-      callFrame.on("left-meeting", handleLeftMeeting);
-
-      // Mettre à jour le statut
-      if (consultation.statut === "PLANIFIE") {
-        await updateStatut("EN_COURS");
-      }
-    } catch (err: any) {
-      setError("Erreur lors de la connexion à la visioconférence");
-      console.error(err);
-    }
-  };
-
-  const leaveCall = async () => {
-    if (callObject) {
-      await callObject.leave();
-      callObject.destroy();
-      setCallObject(null);
-      setParticipants([]);
-    }
-  };
-
-  const handleParticipantJoined = (event: any) => {
-    setParticipants((prev) => [...prev, event.participant]);
-  };
-
-  const handleParticipantLeft = (event: any) => {
-    setParticipants((prev) =>
-      prev.filter((p) => p.session_id !== event.participant.session_id)
-    );
-  };
-
-  const handleParticipantUpdated = (event: any) => {
-    setParticipants((prev) =>
-      prev.map((p) =>
-        p.session_id === event.participant.session_id ? event.participant : p
-      )
-    );
-  };
-
-  const handleLeftMeeting = async () => {
-    if (callObject) {
-      callObject.destroy();
-      setCallObject(null);
-      setParticipants([]);
-    }
-  };
-
-  const toggleMute = async () => {
-    if (callObject) {
-      await callObject.setLocalAudio(!isMuted);
-      setIsMuted(!isMuted);
-    }
-  };
-
-  const toggleCamera = async () => {
-    if (callObject) {
-      await callObject.setLocalVideo(!isCameraOff);
-      setIsCameraOff(!isCameraOff);
-    }
-  };
-
-  const toggleScreenShare = async () => {
-    if (callObject) {
-      if (isScreenSharing) {
-        await callObject.stopScreenShare();
-      } else {
-        await callObject.startScreenShare();
-      }
-      setIsScreenSharing(!isScreenSharing);
-    }
-  };
-
-  const startRecording = async () => {
-    if (callObject && consultation?.enregistrement_autorise) {
-      try {
-        await callObject.startRecording();
-        setIsRecording(true);
-        
-        await fetch(`/api/admin/consultations-video/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enregistrementDemarre: true }),
-        });
-        
-        setSuccess("Enregistrement démarré - sauvegarde locale");
-        setTimeout(() => setSuccess(""), 3000);
-      } catch (err) {
-        setError("Erreur lors du démarrage de l'enregistrement");
-      }
-    }
-  };
-
-  const stopRecording = async () => {
-    if (callObject && isRecording) {
-      try {
-        await callObject.stopRecording();
-        setIsRecording(false);
-        setSuccess("Enregistrement arrêté");
-        setTimeout(() => setSuccess(""), 3000);
-      } catch (err) {
-        setError("Erreur lors de l'arrêt de l'enregistrement");
-      }
+  const leaveCall = () => {
+    if (callFrame) {
+      callFrame.leave();
+    } else if (zegoInstanceRef.current) {
+      zegoInstanceRef.current.destroy();
+      zegoInstanceRef.current = null;
+      setIsInCall(false);
+      router.push('/medecin/rendez-vous');
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Chargement...</div>
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-white">Chargement de la consultation...</p>
+        </div>
       </div>
     );
   }
 
-  if (error && !consultation) {
+  if (error) {
     return (
-      <div className="w-full max-w-6xl mx-auto">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md text-center">
+          <span className="text-6xl mb-4 block">⚠️</span>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Erreur</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => router.push('/medecin/rendez-vous')}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all"
+          >
+            Retour aux rendez-vous
+          </button>
         </div>
-        <Link
-          href="/admin/consultations-video"
-          className="mt-4 inline-block text-[#4DB8A8] hover:text-[#3DA391]"
-        >
-          ← Retour aux consultations
-        </Link>
+      </div>
+    );
+  }
+
+  const consultation = Array.isArray(rdv.consultationVideo) 
+    ? rdv.consultationVideo[0] 
+    : rdv.consultationVideo;
+
+  // ✅ Badge plateforme
+  const getPlatformBadge = () => {
+    if (!consultation) return null;
+    
+    if (consultation.plateforme === 'DAILY') {
+      return (
+        <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm font-medium mb-4">
+          <span className="mr-1">📹</span>
+          Powered by Daily.co
+        </div>
+      );
+    } else if (consultation.plateforme === 'ZEGOCLOUD') {
+      return (
+        <div className="inline-flex items-center px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-sm font-medium mb-4">
+          <span className="mr-1">🎥</span>
+          Powered by ZegoCloud
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (!isInCall) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-blue-900 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-2xl w-full">
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">🎥</span>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Consultation en ligne</h1>
+            <p className="text-gray-600">Prêt à rejoindre votre patient ?</p>
+            {getPlatformBadge()}
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">👤</span>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-900 mb-1">
+                  {rdv.patient?.prenom} {rdv.patient?.nom}
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  📅 {new Date(rdv.datePrevue).toLocaleDateString('fr-FR', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </p>
+                <p className="text-sm text-gray-600">
+                  🕐 {new Date(rdv.datePrevue).toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })} • Durée: {rdv.duree} minutes
+                </p>
+                {rdv.raison && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    📋 {rdv.raison}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ Message permissions */}
+          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-sm text-yellow-900 font-medium mb-2">
+              <span className="font-semibold">⚠️ Permissions requises :</span>
+            </p>
+            <ul className="text-xs text-yellow-800 space-y-1 list-disc list-inside">
+              <li>Accès à votre caméra</li>
+              <li>Accès à votre microphone</li>
+            </ul>
+          </div>
+
+          <div className="space-y-3 mb-6">
+            <div className="flex items-center space-x-3 text-sm text-gray-700">
+              <span className="text-green-500">✅</span>
+              <span>Partage d'écran disponible</span>
+            </div>
+            <div className="flex items-center space-x-3 text-sm text-gray-700">
+              <span className="text-green-500">✅</span>
+              <span>Consultation sécurisée et cryptée</span>
+            </div>
+            {consultation?.enregistrement_autorise && (
+              <div className="flex items-center space-x-3 text-sm text-gray-700">
+                <span className="text-blue-500">🔴</span>
+                <span>
+                  Enregistrement {consultation.plateforme === 'DAILY' ? 'local disponible' : 'non disponible (ZegoCloud)'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => router.push('/medecin/rendez-vous')}
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={joinCall}
+              disabled={loading || checkingPermissions}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold rounded-xl transition-all disabled:opacity-50"
+            >
+              {checkingPermissions ? (
+                <>
+                  <span className="inline-block animate-spin mr-2">⏳</span>
+                  Vérification...
+                </>
+              ) : loading ? (
+                'Connexion...'
+              ) : (
+                '🎥 Rejoindre la consultation'
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <Link
-          href={`/admin/consultations-video/${id}`}
-          className="text-[#4DB8A8] hover:text-[#3DA391] mb-4 inline-block"
-        >
-          ← Retour aux détails
-        </Link>
-        <div className="flex items-center justify-between">
+    <div className="h-screen bg-gray-900 flex flex-col">
+      {/* Header minimal */}
+      <div className="bg-gray-800 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <span className="text-white font-bold">
+              {rdv.patient?.prenom[0]}{rdv.patient?.nom[0]}
+            </span>
+          </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              🎮 Console de contrôle
-            </h1>
-            <p className="text-gray-600">
-              {consultation!.titre}
-            </p>
+            <h3 className="text-white font-medium">
+              {rdv.patient?.prenom} {rdv.patient?.nom}
+            </h3>
+            <p className="text-gray-400 text-sm">Consultation en cours</p>
           </div>
-          {callObject && (
-            <div className="flex items-center space-x-3">
-              <span className="flex items-center space-x-2">
-                <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
-                <span className="text-sm text-gray-600">En direct</span>
-              </span>
-              {isRecording && (
-                <span className="flex items-center space-x-2 bg-red-100 px-3 py-1 rounded-full">
-                  <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                  <span className="text-sm text-red-700 font-medium">Enregistrement</span>
-                </span>
-              )}
-            </div>
-          )}
         </div>
+
+        <button
+          onClick={leaveCall}
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-all"
+        >
+          🚪 Quitter
+        </button>
       </div>
 
-      {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-          {success}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Colonne principale - Visio */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Visioconférence */}
-          <div className="bg-white rounded-lg shadow">
-            {!callObject ? (
-              <div className="p-12">
-                <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg p-12 text-center">
-                  <div className="text-8xl mb-6">🎥</div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                    Prêt à démarrer
-                  </h2>
-                  <p className="text-gray-600 mb-6">
-                    Rejoignez la consultation avec tous les privilèges administrateur
-                  </p>
-                  <button
-                    onClick={joinCall}
-                    className="px-8 py-4 bg-[#4DB8A8] text-white rounded-lg hover:bg-[#3DA391] transition-colors text-lg font-medium"
-                  >
-                    🎮 Rejoindre avec contrôles admin
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                {/* Conteneur vidéo */}
-                <div ref={callFrameRef} className="bg-black rounded-t-lg overflow-hidden" />
-
-                {/* Barre de contrôles */}
-                <div className="bg-gray-900 p-4 rounded-b-lg">
-                  <div className="flex items-center justify-center space-x-3">
-                    <button
-                      onClick={toggleMute}
-                      className={`px-4 py-2 rounded-lg transition-colors ${
-                        isMuted 
-                          ? "bg-red-500 text-white hover:bg-red-600" 
-                          : "bg-gray-700 text-white hover:bg-gray-600"
-                      }`}
-                      title={isMuted ? "Réactiver le micro" : "Couper le micro"}
-                    >
-                      {isMuted ? "🔇" : "🔊"}
-                    </button>
-
-                    <button
-                      onClick={toggleCamera}
-                      className={`px-4 py-2 rounded-lg transition-colors ${
-                        isCameraOff 
-                          ? "bg-red-500 text-white hover:bg-red-600" 
-                          : "bg-gray-700 text-white hover:bg-gray-600"
-                      }`}
-                      title={isCameraOff ? "Activer la caméra" : "Désactiver la caméra"}
-                    >
-                      {isCameraOff ? "📷" : "📹"}
-                    </button>
-
-                    <button
-                      onClick={toggleScreenShare}
-                      className={`px-4 py-2 rounded-lg transition-colors ${
-                        isScreenSharing 
-                          ? "bg-blue-500 text-white hover:bg-blue-600" 
-                          : "bg-gray-700 text-white hover:bg-gray-600"
-                      }`}
-                      title={isScreenSharing ? "Arrêter le partage" : "Partager l'écran"}
-                    >
-                      {isScreenSharing ? "⏹️ 🖥️" : "🖥️"}
-                    </button>
-
-                    {consultation!.enregistrement_autorise && (
-                      <>
-                        {!isRecording ? (
-                          <button
-                            onClick={startRecording}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                            title="Démarrer l'enregistrement local"
-                          >
-                            🔴 REC
-                          </button>
-                        ) : (
-                          <button
-                            onClick={stopRecording}
-                            className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors animate-pulse"
-                            title="Arrêter l'enregistrement"
-                          >
-                            ⏹️ STOP
-                          </button>
-                        )}
-                      </>
-                    )}
-
-                    <div className="flex-1"></div>
-
-                    <button
-                      onClick={leaveCall}
-                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                    >
-                      📞 Quitter
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Participants en temps réel */}
-          {callObject && participants.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                👥 Participants ({participants.length})
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {participants.map((p) => (
-                  <div
-                    key={p.session_id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-[#4DB8A8] rounded-full flex items-center justify-center text-white font-bold">
-                        {(p.user_name || "?")[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {p.user_name || "Invité"}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {p.local ? "Vous" : "Participant"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {p.audio ? (
-                        <span className="text-green-600" title="Micro actif">🔊</span>
-                      ) : (
-                        <span className="text-gray-400" title="Micro coupé">🔇</span>
-                      )}
-                      {p.video ? (
-                        <span className="text-green-600" title="Caméra active">📹</span>
-                      ) : (
-                        <span className="text-gray-400" title="Caméra désactivée">📷</span>
-                      )}
-                      {p.screen && (
-                        <span className="text-blue-600" title="Partage d'écran">🖥️</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Colonne latérale - Informations */}
-        <div className="space-y-6">
-          {/* Informations patient */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Patient</h3>
-            <div className="space-y-2 text-sm">
-              <p className="font-medium">
-                {consultation!.patient.prenom} {consultation!.patient.nom}
-              </p>
-              <p className="text-gray-600">{consultation!.patient.email}</p>
-              {consultation!.patient.telephone && (
-                <p className="text-gray-600">{consultation!.patient.telephone}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Informations médecin */}
-          {consultation!.medecin && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Médecin</h3>
-              <div className="space-y-2 text-sm">
-                <p className="font-medium">
-                  Dr. {consultation!.medecin.prenom} {consultation!.medecin.nom}
-                </p>
-                <p className="text-gray-600">{consultation!.medecin.specialite}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Détails consultation */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Détails</h3>
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-gray-600">Date:</span>
-                <p className="font-medium">
-                  {new Date(consultation!.date_debut).toLocaleDateString("fr-FR")}
-                </p>
-              </div>
-              <div>
-                <span className="text-gray-600">Heure:</span>
-                <p className="font-medium">
-                  {new Date(consultation!.date_debut).toLocaleTimeString("fr-FR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </div>
-              <div>
-                <span className="text-gray-600">Durée:</span>
-                <p className="font-medium">{consultation!.duree} min</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions rapides */}
-          {callObject && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Actions</h3>
-              <div className="space-y-2">
-                <button
-                  onClick={() => updateStatut("TERMINE")}
-                  className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
-                >
-                  ⏹️ Terminer la consultation
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Aide */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-900 mb-2 text-sm">💡 Aide</h3>
-            <ul className="text-xs text-blue-800 space-y-1">
-              <li>• Micro: Couper/réactiver le son</li>
-              <li>• Caméra: Activer/désactiver vidéo</li>
-              <li>• Partage: Partager votre écran</li>
-              {consultation!.enregistrement_autorise && (
-                <li>• REC: Enregistrement local</li>
-              )}
-            </ul>
-          </div>
-        </div>
-      </div>
+      {/* Conteneur vidéo */}
+      <div ref={videoContainerRef} className="flex-1" />
     </div>
   );
 }

@@ -23,6 +23,7 @@ export default function AdminHeader({ utilisateur }: AdminHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("admin_user");
@@ -38,7 +39,7 @@ export default function AdminHeader({ utilisateur }: AdminHeaderProps) {
     { name: "Cliniques", href: "/admin/cliniques", icon: "🏥" },
     { name: "Médecins", href: "/admin/medecins", icon: "👨‍⚕️" },
     { name: "Visioconférence", href: "/admin/consultations-video", icon: "🎥" },
-    { name: "Comptabilité", href: "/admin/comptabilite", icon: "💰" }, // ✅ AJOUT
+    { name: "Comptabilité", href: "/admin/comptabilite", icon: "💰" },
     { name: "Devis", href: "/admin/devis", icon: "💼" },
     { name: "Messages", href: "/admin/messages", icon: "💬" },
   ];
@@ -67,7 +68,7 @@ export default function AdminHeader({ utilisateur }: AdminHeaderProps) {
                 height={50}
                 className="rounded-lg"
               />
-              <div>
+              <div className="hidden sm:block">
                 <h1 className="text-xl font-bold text-[#4DB8A8]">
                   PERFECT ASSISTANCE
                 </h1>
@@ -75,8 +76,37 @@ export default function AdminHeader({ utilisateur }: AdminHeaderProps) {
               </div>
             </Link>
 
-            {/* User info et menu */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Bouton menu hamburger - visible uniquement sur mobile/tablette */}
+              <button
+                onClick={() => setMobileNavOpen(!mobileNavOpen)}
+                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Menu navigation"
+              >
+                <svg
+                  className="w-6 h-6 text-gray-700"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  {mobileNavOpen ? (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  ) : (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  )}
+                </svg>
+              </button>
+
               {/* User info - masqué sur mobile */}
               <div className="hidden md:block text-right">
                 <p className="text-sm font-medium text-gray-900">
@@ -91,18 +121,18 @@ export default function AdminHeader({ utilisateur }: AdminHeaderProps) {
                 </p>
               </div>
 
-              {/* Menu dropdown */}
+              {/* Menu dropdown user */}
               <div className="relative">
                 <button
                   onClick={() => setMenuOpen(!menuOpen)}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-2 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full bg-[#4DB8A8] text-white flex items-center justify-center font-bold text-sm">
                     {utilisateur.prenom[0]}
                     {utilisateur.nom[0]}
                   </div>
                   <svg
-                    className="w-4 h-4 text-gray-600"
+                    className="w-4 h-4 text-gray-600 hidden sm:block"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -116,7 +146,7 @@ export default function AdminHeader({ utilisateur }: AdminHeaderProps) {
                   </svg>
                 </button>
 
-                {/* Dropdown */}
+                {/* Dropdown user */}
                 {menuOpen && (
                   <>
                     <div
@@ -169,17 +199,17 @@ export default function AdminHeader({ utilisateur }: AdminHeaderProps) {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex space-x-1 overflow-x-auto py-2 scrollbar-hide">
+      {/* Navigation Desktop - Wrapping adaptatif */}
+      <div className="hidden lg:block w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-wrap gap-1 py-2">
           {navigation.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
               <Link
-                key={item.href} // ✅ CORRECTION: Utiliser href comme key (plus unique que name)
+                key={item.href}
                 href={item.href}
                 className={`
-                  flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors
+                  flex items-center space-x-2 px-3 xl:px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors
                   ${
                     isActive
                       ? "bg-[#4DB8A8] text-white"
@@ -188,22 +218,51 @@ export default function AdminHeader({ utilisateur }: AdminHeaderProps) {
                 `}
               >
                 <span>{item.icon}</span>
-                <span>{item.name}</span>
+                <span className="hidden xl:inline">{item.name}</span>
+                <span className="xl:hidden">{item.name.split(' ')[0]}</span>
               </Link>
             );
           })}
         </div>
       </div>
 
-      <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
+      {/* Navigation Mobile/Tablette - Menu déroulant */}
+      {mobileNavOpen && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          
+          {/* Menu slide-in */}
+          <div className="fixed top-16 left-0 right-0 bg-white shadow-lg z-50 lg:hidden max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <nav className="px-4 py-4 space-y-1">
+              {navigation.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={`
+                      flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors
+                      ${
+                        isActive
+                          ? "bg-[#4DB8A8] text-white"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }
+                    `}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        </>
+      )}
     </header>
   );
 }

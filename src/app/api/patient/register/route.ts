@@ -1,8 +1,10 @@
-// Fichier: app/api/auth/patient/register/route.ts
+// app/api/auth/patient/register/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";  // ✅ Utilise VOTRE fichier
+import { supabaseAdmin } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
 import { SignJWT } from "jose";
+import { isEmailAlreadyUsed } from "@/lib/email-validator"; // ✅ NOUVEAU
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'votre-secret-jwt-change-moi'
@@ -12,9 +14,9 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.json();
 
-    console.log('📝 Tentative inscription:', formData.email);
+    console.log('📝 Tentative inscription patient:', formData.email);
 
-    // Validation
+    // Validation des champs obligatoires
     const requiredFields = ['prenom', 'nom', 'email', 'motDePasse', 'telephone', 'pays'];
     for (const field of requiredFields) {
       if (!formData[field]) {
@@ -25,6 +27,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validation email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       return NextResponse.json(
@@ -33,23 +36,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validation mot de passe
     if (formData.motDePasse.length < 8) {
       return NextResponse.json(
-        { error: "Mot de passe trop court (min 8 caractères)" },
+        { error: "Mot de passe trop court (minimum 8 caractères)" },
         { status: 400 }
       );
     }
 
-    // Vérifier si email existe
-    const { data: existingPatient } = await supabaseAdmin
-      .from("patients")
-      .select("id")
-      .eq("email", formData.email.toLowerCase())
-      .maybeSingle();
-
-    if (existingPatient) {
+    // ✅ NOUVEAU - Vérification email cross-tables
+    const emailCheck = await isEmailAlreadyUsed(formData.email);
+    if (emailCheck.isUsed) {
+      console.log(`❌ Email déjà utilisé dans: ${emailCheck.usedIn}`);
+      
+      // Message personnalisé selon la table
+      let errorMessage = emailCheck.message;
+      
+      if (emailCheck.usedIn === 'medecins') {
+        errorMessage = "Cet email est déjà associé à un compte médecin. Veuillez utiliser un autre email ou vous connecter en tant que médecin.";
+      } else if (emailCheck.usedIn === 'medecins_referents') {
+        errorMessage = "Cet email est déjà associé à un compte médecin référent. Veuillez contacter l'administration.";
+      } else if (emailCheck.usedIn === 'utilisateurs') {
+        errorMessage = "Cet email est déjà associé à un compte administrateur. Veuillez vous connecter via l'espace admin.";
+      } else if (emailCheck.usedIn === 'patients') {
+        errorMessage = "Cet email est déjà utilisé. Avez-vous déjà un compte ? Essayez de vous connecter.";
+      }
+      
       return NextResponse.json(
-        { error: "Cet email est déjà utilisé" },
+        { error: errorMessage },
         { status: 409 }
       );
     }
@@ -67,9 +81,9 @@ export async function POST(request: NextRequest) {
         motDePasse: hashedPassword,
         telephone: formData.telephone,
         pays: formData.pays,
-        dateNaissance: '2000-01-01',
-        sexe: 'Non spécifié',
-        nationalite: formData.pays,
+        dateNaissance: formData.dateNaissance || '2000-01-01',
+        sexe: formData.sexe || 'Non spécifié',
+        nationalite: formData.nationalite || formData.pays,
         statut: 'EN_ATTENTE',
         estActif: true,
         langue: 'fr',
@@ -79,12 +93,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError || !patient) {
-      console.error('Erreur insertion:', insertError);
+      console.error('❌ Erreur insertion:', insertError);
       return NextResponse.json(
-        { error: "Erreur création compte: " + (insertError?.message || 'inconnue') },
+        { error: "Erreur lors de la création du compte: " + (insertError?.message || 'inconnue') },
         { status: 500 }
       );
     }
+
+    console.log('✅ Patient créé:', patient.id);
 
     // Créer JWT
     const token = await new SignJWT({
@@ -114,17 +130,17 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // 7 jours
       path: '/'
     });
 
-    console.log('✅ Inscription réussie');
+    console.log('✅ Inscription et connexion réussies');
     return response;
 
   } catch (error: any) {
-    console.error("💥 Erreur inscription:", error.message);
+    console.error("💥 Erreur inscription patient:", error.message);
     return NextResponse.json(
-      { error: "Erreur serveur" },
+      { error: "Erreur serveur lors de l'inscription" },
       { status: 500 }
     );
   }

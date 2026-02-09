@@ -1,10 +1,9 @@
-// ==========================================
-// FICHIER: /app/api/admin/patients/route.ts
-// AVEC COMPTAGE DES MESSAGES
-// ==========================================
+// app/api/admin/patients/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
+import { isEmailAlreadyUsed } from "@/lib/email-validator"; // ✅ NOUVEAU
 
 // ==========================================
 // FONCTION UTILITAIRE - Génération de mot de passe
@@ -37,7 +36,6 @@ export async function GET() {
   try {
     console.log('📋 GET /api/admin/patients - Chargement liste');
 
-    // Récupérer les patients avec médecin référent
     const { data: patients, error } = await supabaseAdmin
       .from('patients')
       .select(`
@@ -60,16 +58,13 @@ export async function GET() {
 
     console.log(`✅ ${patients?.length || 0} patients récupérés, enrichissement en cours...`);
 
-    // Enrichir avec le comptage des messages
     const patientsEnrichis = await Promise.all(
       (patients || []).map(async (patient) => {
-        // Compter TOUS les messages du patient (envoyés + reçus)
         const { count: messagesCount } = await supabaseAdmin
           .from('messages')
           .select('*', { count: 'exact', head: true })
           .or(`and(expediteurId.eq.${patient.id},expediteurType.eq.patient),and(destinataireId.eq.${patient.id},destinataireType.eq.patient)`);
 
-        // Compter les messages NON LUS reçus par le patient
         const { count: messagesNonLus } = await supabaseAdmin
           .from('messages')
           .select('*', { count: 'exact', head: true })
@@ -77,7 +72,6 @@ export async function GET() {
           .eq('destinataireType', 'patient')
           .eq('estLu', false);
 
-        // Retirer le mot de passe
         const { motDePasse, ...patientData } = patient;
 
         return {
@@ -117,16 +111,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier email unique
-    const { data: existing } = await supabaseAdmin
-      .from('patients')
-      .select('id')
-      .eq('email', body.email.toLowerCase())
-      .maybeSingle();
-
-    if (existing) {
+    // ✅ NOUVEAU - Vérification email cross-tables
+    const emailCheck = await isEmailAlreadyUsed(body.email);
+    if (emailCheck.isUsed) {
+      console.log(`❌ Email déjà utilisé dans: ${emailCheck.usedIn}`);
       return NextResponse.json(
-        { error: "Cet email est déjà utilisé" },
+        { error: emailCheck.message },
         { status: 400 }
       );
     }
@@ -197,7 +187,6 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Patient créé:', patient.id);
 
-    // Retourner sans le mot de passe haché
     const { motDePasse: _, ...patientSansMotDePasse } = patient;
 
     return NextResponse.json({
@@ -207,7 +196,7 @@ export async function POST(request: NextRequest) {
         messagesCount: 0,
         messagesNonLus: 0
       },
-      motDePasseTemporaire: tempPassword, // À afficher à l'admin
+      motDePasseTemporaire: tempPassword,
     });
 
   } catch (error: any) {

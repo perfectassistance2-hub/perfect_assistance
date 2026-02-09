@@ -1,3 +1,5 @@
+// app/api/patient/rendez-vous/[id]/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth-utils';
 import { supabaseAdmin } from '@/lib/supabase';
@@ -21,7 +23,7 @@ export async function GET(
 
     const patientId = user.userId;
 
-    // Récupérer le rendez-vous avec toutes les relations
+    // ✅ Récupérer le rendez-vous avec support des deux plateformes
     const { data: rdv, error } = await supabaseAdmin
       .from('rendez_vous')
       .select(`
@@ -46,12 +48,17 @@ export async function GET(
         ),
         consultationVideo:consultations_video!rendez_vous_id(
           id,
+          titre,
+          plateforme,
           daily_room_name,
           daily_room_url,
+          zego_room_id,
           lien_patient,
           lien_medecin,
-          mot_de_passe,
-          statut
+          statut,
+          date_debut,
+          duree,
+          enregistrement_autorise
         )
       `)
       .eq('id', rdvId)
@@ -85,7 +92,6 @@ export async function GET(
         .eq('patientId', patientId)
         .order('dateCreation', { ascending: false });
       
-      // Filtrer les documents qui ont ce rdvId dans leurs tags ou description
       documents = (docsData || []).filter(doc => 
         doc.tags?.includes(rdvId) || 
         doc.description?.includes(rdvId)
@@ -109,7 +115,7 @@ export async function GET(
   }
 }
 
-// PUT pour mettre à jour le RDV (notes du patient, etc.)
+// PUT reste identique...
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -132,7 +138,6 @@ export async function PUT(
 
     const { notes, statut } = body;
 
-    // Construire l'objet de mise à jour
     const updateData: any = {
       dateMiseAJour: new Date().toISOString()
     };
@@ -142,7 +147,6 @@ export async function PUT(
     }
 
     if (statut !== undefined) {
-      // Le patient peut seulement annuler
       if (statut === 'ANNULE') {
         updateData.statut = 'ANNULE';
       }

@@ -103,7 +103,7 @@ export default function AuthHeader({ user }: AuthHeaderProps) {
                 PERFECT ASSISTANCE
               </h1>
               <p className="text-xs text-gray-600">
-                {user?.role === 'medecin' ? 'Espace Médecin' : user?.role === 'patient' ? 'Espace Patient' : 'Tourisme Médical & Hébergement'}
+                {user?.role === 'medecin' ? 'Espace Médecin' : user?.role === 'patient' ? 'Espace Patient' : 'Evacuation Médical & Hébergement'}
               </p>
             </div>
           </Link>

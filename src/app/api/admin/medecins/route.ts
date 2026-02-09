@@ -1,8 +1,10 @@
+// app/api/admin/medecins/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
+import { isEmailAlreadyUsed } from "@/lib/email-validator"; // ✅ NOUVEAU
 
-// Fonction pour générer un mot de passe temporaire sécurisé
 function generateTemporaryPassword(length: number = 12): string {
   const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -12,18 +14,15 @@ function generateTemporaryPassword(length: number = 12): string {
   const allChars = uppercase + lowercase + numbers + symbols;
   
   let password = '';
-  // Garantir au moins un caractère de chaque type
   password += uppercase[Math.floor(Math.random() * uppercase.length)];
   password += lowercase[Math.floor(Math.random() * lowercase.length)];
   password += numbers[Math.floor(Math.random() * numbers.length)];
   password += symbols[Math.floor(Math.random() * symbols.length)];
   
-  // Compléter avec des caractères aléatoires
   for (let i = password.length; i < length; i++) {
     password += allChars[Math.floor(Math.random() * allChars.length)];
   }
   
-  // Mélanger le mot de passe
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
@@ -91,28 +90,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier que l'email n'existe pas
-    const { data: existing } = await supabaseAdmin
-      .from('medecins')
-      .select('id')
-      .eq('email', email.toLowerCase())
-      .maybeSingle();
-
-    if (existing) {
+    // ✅ NOUVEAU - Vérification email cross-tables
+    const emailCheck = await isEmailAlreadyUsed(email);
+    if (emailCheck.isUsed) {
+      console.log(`❌ Email déjà utilisé dans: ${emailCheck.usedIn}`);
       return NextResponse.json(
-        { error: "Cet email est déjà utilisé" },
+        { error: emailCheck.message },
         { status: 400 }
       );
     }
 
-    // ✅ Générer un mot de passe temporaire
+    // Générer un mot de passe temporaire
     const tempPassword = generateTemporaryPassword();
     console.log('🔑 Mot de passe temporaire généré:', tempPassword);
 
-    // ✅ Hasher le mot de passe pour la BDD
+    // Hasher le mot de passe pour la BDD
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    // ✅ Créer le médecin dans la base de données avec mot de passe
+    // Créer le médecin dans la base de données avec mot de passe
     const { data: newMedecin, error: medecinError } = await supabaseAdmin
       .from('medecins')
       .insert({
@@ -124,8 +119,8 @@ export async function POST(request: NextRequest) {
         cliniqueId: cliniqueId || null,
         numeroLicence: numeroLicence || null,
         anneesExperience: anneesExperience || null,
-        motDePasse: hashedPassword, // ✅ Stocké en BDD
-        doitChangerMotDePasse: true, // ✅ Doit changer à la première connexion
+        motDePasse: hashedPassword,
+        doitChangerMotDePasse: true,
         estActif: true,
       })
       .select(`
@@ -141,15 +136,12 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Médecin créé avec succès');
 
-    // TODO: Envoyer le mot de passe par email
-    // Pour l'instant, on le retourne (À RETIRER EN PRODUCTION)
-
     return NextResponse.json({
       success: true,
       medecin: newMedecin,
       credentials: {
         email: email.toLowerCase(),
-        temporaryPassword: tempPassword, // ⚠️ À retirer en production, envoyer par email
+        temporaryPassword: tempPassword,
         message: "Compte créé avec succès. Communiquez ces identifiants au médecin de manière sécurisée."
       }
     });

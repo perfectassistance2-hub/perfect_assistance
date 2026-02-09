@@ -1,6 +1,9 @@
+// app/api/admin/utilisateurs/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
+import { isEmailAlreadyUsed } from "@/lib/email-validator"; // ✅ NOUVEAU
 
 // GET - Liste tous les utilisateurs
 export async function GET() {
@@ -32,6 +35,8 @@ export async function POST(request: NextRequest) {
   try {
     const { email, prenom, nom, role, telephone, motDePasse } = await request.json();
 
+    console.log('📝 POST /api/admin/utilisateurs - Création:', email);
+
     // Validation
     if (!email || !prenom || !nom || !role || !motDePasse) {
       return NextResponse.json(
@@ -47,16 +52,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier que l'email n'existe pas déjà
-    const { data: existing } = await supabaseAdmin
-      .from('utilisateurs')
-      .select('id')
-      .eq('email', email.toLowerCase())
-      .single();
-
-    if (existing) {
+    // ✅ NOUVEAU - Vérification email cross-tables
+    const emailCheck = await isEmailAlreadyUsed(email);
+    if (emailCheck.isUsed) {
+      console.log(`❌ Email déjà utilisé dans: ${emailCheck.usedIn}`);
       return NextResponse.json(
-        { error: "Cet email est déjà utilisé" },
+        { error: emailCheck.message },
         { status: 400 }
       );
     }
@@ -83,6 +84,8 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
+    console.log('✅ Utilisateur créé:', newUser.id);
+
     // Retourner sans le mot de passe
     const { motDePasse: _, ...userSansMotDePasse } = newUser;
 
@@ -90,10 +93,10 @@ export async function POST(request: NextRequest) {
       success: true,
       utilisateur: userSansMotDePasse,
     });
-  } catch (error) {
-    console.error("Erreur création utilisateur:", error);
+  } catch (error: any) {
+    console.error("❌ Erreur création utilisateur:", error);
     return NextResponse.json(
-      { error: "Erreur lors de la création de l'utilisateur" },
+      { error: error.message || "Erreur lors de la création de l'utilisateur" },
       { status: 500 }
     );
   }

@@ -92,7 +92,7 @@ export default function HomeHeader({ scrolled, mobileMenuOpen, setMobileMenuOpen
               <h1 className="text-xl font-bold bg-gradient-to-r from-[#4DB8A8] to-[#3DA391] bg-clip-text text-transparent">
                 PERFECT ASSISTANCE
               </h1>
-              <p className="text-xs text-gray-600">Tourisme Médical & Hébergement</p>
+              <p className="text-xs text-gray-600">Evacuation Médical & Hébergement</p>
             </div>
           </Link>
 

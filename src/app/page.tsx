@@ -123,10 +123,10 @@ export default function HomePage() {
 
   // Vidéos YouTube - Remplacez les IDs par vos vraies vidéos
   const youtubeVideos = [
-    { id: "dQw4w9WgXcQ", title: "Présentation Perfect Assistance" },
-    { id: "dQw4w9WgXcQ", title: "Témoignages Patients" },
-    { id: "dQw4w9WgXcQ", title: "Nos Cliniques Partenaires" },
-    { id: "dQw4w9WgXcQ", title: "Processus d'Accompagnement" }
+    { id: "SVb02T4hNSY", title: "Infertilité Masculine" },
+    { id: "aPgQmka_z-M", title: "Calcul Rénal" },
+    { id: "1Vypwdi_vI", title: "Prise en charge des Patientes du Cancer du Sein" },
+    { id: "uENzi9QAAZY", title: "Arthrose" }
   ];
 
   const scrollVideos = (direction: 'left' | 'right') => {

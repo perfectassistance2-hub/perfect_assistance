@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { isEmailAlreadyUsed } from "@/lib/email-validator"; // ✅ NOUVEAU
 
 // =====================================================
 // GET - Liste des médecins référents
@@ -21,7 +22,6 @@ export async function GET(request: NextRequest) {
       `)
       .order("datecreation", { ascending: false });
 
-    // Filtres
     if (actif === "true") {
       query = query.eq("estactif", true);
     } else if (actif === "false") {
@@ -42,13 +42,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Compter les patients pour chaque médecin
     const medecinsAvecCount = medecins?.map((medecin) => ({
       ...medecin,
       _count: {
         patients: medecin.patients?.length || 0,
       },
-      patients: undefined, // Supprimer la liste complète
+      patients: undefined,
     }));
 
     return NextResponse.json(medecinsAvecCount || []);
@@ -82,6 +81,8 @@ export async function POST(request: NextRequest) {
       notes,
     } = body;
 
+    console.log('📝 POST /api/admin/medecins-referents - Création:', email);
+
     // Validation
     if (!nom || !prenom || !email || !telephone || !pays) {
       return NextResponse.json(
@@ -90,16 +91,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier que l'email n'existe pas déjà
-    const { data: existingMedecin, error: checkError } = await supabaseAdmin
-      .from("medecins_referents")
-      .select("id")
-      .eq("email", email)
-      .single();
-
-    if (existingMedecin) {
+    // ✅ NOUVEAU - Vérification email cross-tables
+    const emailCheck = await isEmailAlreadyUsed(email);
+    if (emailCheck.isUsed) {
+      console.log(`❌ Email déjà utilisé dans: ${emailCheck.usedIn}`);
       return NextResponse.json(
-        { error: "Un médecin référent avec cet email existe déjà" },
+        { error: emailCheck.message },
         { status: 400 }
       );
     }
@@ -110,7 +107,7 @@ export async function POST(request: NextRequest) {
       .insert({
         nom,
         prenom,
-        email,
+        email: email.toLowerCase(),
         telephone,
         specialite: specialite || null,
         etablissement: etablissement || null,
@@ -131,7 +128,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Médecin référent créé:", newMedecin.id);
+    console.log("✅ Médecin référent créé:", newMedecin.id);
 
     return NextResponse.json(newMedecin, { status: 201 });
   } catch (error: any) {
