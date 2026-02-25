@@ -405,7 +405,7 @@ export default function ContactPage() {
               },
               {
                 q: 'Comment se déroule le paiement ?',
-                r: 'Nous acceptons les virements bancaires, cartes de crédit et paiements en plusieurs fois. Paiement sécurisé garanti.'
+                r: 'Nous acceptons les virements bancaires et les chèques.'
               }
             ].map((faq, index) => (
               <div key={index} className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all">

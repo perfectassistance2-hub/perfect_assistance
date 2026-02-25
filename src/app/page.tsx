@@ -17,7 +17,7 @@ export default function HomePage() {
 
   // Images médicales du Maroc (hôpitaux, cliniques modernes)
   const backgroundImages = [
-    "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&q=80", // Hôpital moderne
+    "https://images.unsplash.com/photo-1710074213379-2a9c2653046a?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", // Hôpital moderne
     "https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=1920&q=80", // Équipe médicale
     "https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=1920&q=80", // Salle d'opération moderne
     "https://images.unsplash.com/photo-1516549655169-df83a0774514?w=1920&q=80", // Clinique contemporaine
@@ -92,9 +92,9 @@ export default function HomePage() {
 
   const stats = [
     { number: "5000+", label: "Patients Accompagnés" },
-    { number: "150+", label: "Médecins Partenaires" },
+    { number: "330+", label: "Médecins Partenaires" },
     { number: "30+", label: "Cliniques d'Excellence" },
-    { number: "98%", label: "Taux de Satisfaction" }
+    { number: "99%", label: "Taux de Satisfaction" }
   ];
 
   const testimonials = [

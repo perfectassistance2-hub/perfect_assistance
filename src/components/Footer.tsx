@@ -20,7 +20,7 @@ export default function Footer() {
               <span className="font-bold text-lg">PERFECT ASSISTANCE</span>
             </div>
             <p className="text-gray-400 text-sm">
-              Votre partenaire multi-services pour l'Afrique
+              Votre sécurité, notre priorité.
             </p>
           </div>
 
@@ -29,10 +29,10 @@ export default function Footer() {
             <ul className="space-y-2 text-gray-400 text-sm">
               <li>
                 <Link href="/tourisme-medical" className="hover:text-[#4DB8A8] transition-colors">
-                  Tourisme médical
+                  Evacuation médicale
                 </Link>
               </li>
-              <li>
+              {/*<li>
                 <Link href="/representation-commerciale" className="hover:text-[#4DB8A8] transition-colors">
                   Représentation commerciale
                 </Link>
@@ -46,7 +46,7 @@ export default function Footer() {
                 <a href="#contact" className="hover:text-[#4DB8A8] transition-colors">
                   Nous contacter
                 </a>
-              </li>
+              </li>*/}
             </ul>
           </div>
 
@@ -79,15 +79,15 @@ export default function Footer() {
           <div>
             <h4 className="font-bold mb-4">Contact</h4>
             <ul className="space-y-2 text-gray-400 text-sm">
-              <li>📧 contact@perfectassistance.ma</li>
-              <li>📞 +212 5XX XXX XXX</li>
+              <li>📧 Mail : direction@perfectassistance.fr</li>
+              <li>📞 +212 673-623053</li>
               <li>📍 Rabat, Maroc</li>
               <li className="pt-2">
                 <div className="flex space-x-3">
-                  <a href="#" className="hover:text-[#4DB8A8] transition-colors">
+                  {/*<a href="#" className="hover:text-[#4DB8A8] transition-colors">
                     LinkedIn
-                  </a>
-                  <a href="#" className="hover:text-[#4DB8A8] transition-colors">
+                  </a>*/}
+                  <a href="https://www.facebook.com/PerfectAssistance" className="hover:text-[#4DB8A8] transition-colors">
                     Facebook
                   </a>
                 </div>
